@@ -1,0 +1,43 @@
+name: Create EXE and Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest  # Use a Windows runner with Node.js 16
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: 'v1.0.0'
+      COMMIT_SHA: ${{ github.sha }}
+      REPO: ${{ github.repository }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Important for tags manipulation
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.11.0  # Specify the Python version you need
+          architecture: x64  # Use x64 or x86 based on your requirements
+
+      - name: Install Dependencies
+        run: |
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Create .env File
+        run: echo 'GPT_KEY=${{ secrets.GPT_KEY }}','CREDS_JSON=${{ secrets.CREDS_JSON }}' > .env
+
+      - name: Create Date File
+        run: python -c "import datetime; print(datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ'))" > time.txt
+
+      - name: Build EXE
+        run: |
+          pyinstaller --noconfirm --onefile --console --icon "icon.ico" --add-data "time.txt:." --add-data ".env;." --name "PDF2GS-Notary" --add-data "updater.exe:." --distpath ./output "main.py"
+
+      - name: Upload and Replace EXE in Release
+        run: python release.py

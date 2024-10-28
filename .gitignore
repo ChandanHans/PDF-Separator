@@ -1,0 +1,12 @@
+/Output
+/Undertaker
+/Notary
+/Other
+/Input
+/images
+/Completed
+secret_token.pickle
+.env
+.venv
+__pycache__
+k.py
