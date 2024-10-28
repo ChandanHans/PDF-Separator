@@ -37,7 +37,7 @@ jobs:
 
       - name: Build EXE
         run: |
-          pyinstaller --noconfirm --onefile --console --icon "icon.ico" --add-data "time.txt:." --add-data ".env;." --name "PDF2GS-Separator" --add-data "updater.exe:." --distpath ./output "main.py"
+          pyinstaller --noconfirm --onefile --console --icon "icon.ico" --add-data "time.txt:." --add-data ".env;." --name "PDF-Separator" --add-data "updater.exe:." --distpath ./output "main.py"
 
       - name: Upload and Replace EXE in Release
         run: python release.py
