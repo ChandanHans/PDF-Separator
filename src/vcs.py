@@ -16,7 +16,7 @@ def resource_path(relative_path):
 
 
 OWNER = "ChandanHans"
-REPO_NAME = "PDF2GS-Separator"
+REPO_NAME = "PDF-Separator"
 EXE_NAME = f"{REPO_NAME}.exe"
 RELEASE_TAG = "v1.0.0"
 EXE_URL = (
