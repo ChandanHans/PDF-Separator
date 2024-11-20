@@ -98,7 +98,7 @@ Please format the output as a JSON object, following this structure exactly:
         "Deceased person full name" : (Extract from the beginning of the text. Do not change any Upper Case or Lower Case),
         "Date of Death" : (format : dd/mm/yyyy),
         "City of death" : ,
-        "Family member name" : (hints :  fils/ fille/ père/ mère/ frère/ sœur/ cousin/ cousine/ neveu/ nièce/ oncle/ tante/ Epoux/ Epouse/ petits fils/ petite fille/ compagne/ compagnon/ concubin/ concubine/ ex-époux/ ex-épouse/ ex-mari/ ex-femme/ ami/ amie/ etc...),
+        "Family member name" : (hints :  fils/ fille/ père/ mère/ frère/ sœur/ cousin/ cousine/ neveu/ nièce/ oncle/ tante/ Epoux/ Epouse/ petits fils/ petite fille/ compagne/ compagnon/ concubin/ concubine/ ex-époux/ ex-épouse/ ex-mari/ ex-femme/ ami/ amie/ etc...) (return the name of the relative name here not the relation),
         "Family Address" : full address,
         "Relation with Deceased person" : (fils/ fille/ père/ mère/ frère/ sœur/ cousin/ cousine/ neveu/ nièce/ oncle/ tante/ Epoux/ Epouse/ petits fils/ petite fille/ compagne/ compagnon/ concubin/ concubine/ ex-époux/ ex-épouse/ ex-mari/ ex-femme/ ami/ amie/ etc...)
     }
