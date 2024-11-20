@@ -30,14 +30,14 @@ jobs:
           pip install -r requirements.txt
 
       - name: Create .env File
-        run: echo 'GPT_KEY=${{ secrets.GPT_KEY }}' > .env
+        run: echo 'GPT_KEY=${{ secrets.GPT_KEY }}','CREDS_JSON=${{ secrets.CREDS_JSON }}' > .env
 
       - name: Create Date File
         run: python -c "import datetime; print(datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ'))" > time.txt
 
       - name: Build EXE
         run: |
-          pyinstaller --noconfirm --onefile --console --icon "icon.ico" --add-data "time.txt:." --add-data ".env;." --name "PDF-Separator" --add-data "updater.exe:." --distpath ./output "main.py"
+          pyinstaller --noconfirm --onefile --console --icon "icon.ico" --add-data "time.txt:." --add-data ".env;." --name "PDF-Separator" --add-data "updater.exe:." "templates/:templates/" --distpath ./output "main.py"
 
       - name: Upload and Replace EXE in Release
         run: python release.py

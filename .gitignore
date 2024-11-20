@@ -4,8 +4,10 @@
 /Input
 /images
 /Completed
+/Letter
 secret_token.pickle
 .env
 .venv
 __pycache__
 k.py
+token.*

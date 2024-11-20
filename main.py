@@ -7,13 +7,24 @@ import os
 import time
 import shutil
 from tqdm import tqdm
+from googleapiclient.discovery import build
 
 from src.pdf_processing import *
 from src.image_processing import *
 from src.utils import *
 from src.constants import *
+from src.process_letter import create_pdf_from_template
+from src.drive_upload import authenticate_google_drive
 
 def main():
+    # Authenticate Google Drive once and get the service instances
+    creds = authenticate_google_drive()
+    drive_service = build('drive', 'v3', credentials=creds)
+    sheets_service = build('sheets', 'v4', credentials=creds)
+
+
+    existing_images = get_existing_image_names(sheets_service, IMAGE_SHEET_ID)
+    
     check_for_tesseract()
 
     pdf_files = [
@@ -36,24 +47,42 @@ def main():
         images = [
             file for file in os.listdir(IMAGE_FOLDER) if file.lower().endswith(".png")
         ]
-        images = sorted(images, key=extract_number)
+        images = sorted(images, key=extract_number, reverse=True)
 
         print("\nSTART :\n")
         progress_bar = tqdm(images, ncols=60, bar_format="{percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt}")
         for image in progress_bar:
             image_path = f"{IMAGE_FOLDER}/{image}"
-            result:dict = get_image_result(image_path)  # Pass services
-            if result:
-                results = list(result.values())
-                if results[1]:
+            gpt_result:dict = get_image_result(image_path)  # Pass services
+            if gpt_result:
+                result = list(gpt_result.values())
+                if result[1]:
                     notary_images.append(image_path)
-                elif results[2]:
-                    if results[0]:
+                elif result[2]:
+                    if result[0]:
                         na_images.append(image_path)
                     else:
                         undertake_images.append(image_path)
                 else:
-                    na_images.append(image_path)
+                    if result[0]:
+                        na_images.append(image_path)
+                    else:
+                        details = list(result[3].values())
+                        name, dod, city, relative, relative_address, relation = details
+                        file_link = upload_image_and_append_sheet(
+                            name, image_path, drive_service, sheets_service, existing_images
+                        )
+                        new_row = (name, dod, city, relative, relative_address, relation, file_link)
+                        request = sheets_service.spreadsheets().values().append(
+                                spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
+                                range="Sheet1!A:G",
+                                valueInputOption="RAW",
+                                body={"values": [new_row]},
+                            )
+                        execute_with_retry(request)
+                        replacements = {'(NAME)': name}
+                        latter_file_name = f"Prise de contact héritier succession {name}.pdf"
+                        create_pdf_from_template(replacements, image_path, latter_file_name)
 
         combine_images_to_pdf(notary_images,f"{NOTARY_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Notary.pdf')}")
         combine_images_to_pdf(undertake_images,f"{UNDERTAKER_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Undertaker.pdf')}")
@@ -67,16 +96,11 @@ def main():
 
 
 if __name__ == "__main__":
-    if not os.path.exists(INPUT_FOLDER):
-        os.makedirs(INPUT_FOLDER)
-    if not os.path.exists(NOTARY_OUTPUT_FOLDER):
-        os.makedirs(NOTARY_OUTPUT_FOLDER)
-    if not os.path.exists(UNDERTAKER_OUTPUT_FOLDER):
-        os.makedirs(UNDERTAKER_OUTPUT_FOLDER)
-    if not os.path.exists(OTHER_OUTPUT_FOLDER):
-        os.makedirs(OTHER_OUTPUT_FOLDER)
-    if not os.path.exists(IMAGE_FOLDER):
-        os.makedirs(IMAGE_FOLDER)
-    if not os.path.exists(COMPLETED_FOLDER):
-        os.makedirs(COMPLETED_FOLDER)
+    os.makedirs(INPUT_FOLDER, exist_ok=True)
+    os.makedirs(NOTARY_OUTPUT_FOLDER, exist_ok=True)
+    os.makedirs(UNDERTAKER_OUTPUT_FOLDER, exist_ok=True)
+    os.makedirs(OTHER_OUTPUT_FOLDER, exist_ok=True)
+    os.makedirs(IMAGE_FOLDER, exist_ok=True)
+    os.makedirs(COMPLETED_FOLDER, exist_ok=True)
+    os.makedirs(LETTER_FOLDER, exist_ok=True)
     main()
