@@ -47,7 +47,7 @@ def main():
         images = [
             file for file in os.listdir(IMAGE_FOLDER) if file.lower().endswith(".png")
         ]
-        images = sorted(images, key=extract_number, reverse=True)
+        images = sorted(images, key=extract_number)
 
         print("\nSTART :\n")
         progress_bar = tqdm(images, ncols=60, bar_format="{percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt}")
