@@ -136,4 +136,4 @@ def create_combine_letters(sheets_service, drive_service):
             
     current_time = datetime.now()
     formatted_time = current_time.strftime("%d-%m-%Y-%H-%M")
-    combine_pdfs(TEMP_LETTER_FOLDER, LETTER_FOLDER, f"Letter - {formatted_time}.pdf")
+    combine_pdfs(TEMP_LETTER_FOLDER, LETTER_FOLDER, f"Letters - {formatted_time}.pdf")
