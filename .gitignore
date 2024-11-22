@@ -5,6 +5,7 @@
 /images
 /Completed
 /Letter
+/Temp-Letter
 secret_token.pickle
 .env
 .venv
