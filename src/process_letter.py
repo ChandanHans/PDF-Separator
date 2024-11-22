@@ -1,11 +1,17 @@
+from datetime import datetime
 import os
 import tempfile
 from docx import Document
 from docx2pdf import convert
+from PyPDF2 import PdfReader, PdfWriter
+
+from .drive_upload import download_image
+from .image_processing import get_table_data
+from .utils import execute_with_retry, extract_number, normalize_rows
 
 from .constants import *
 
-def create_pdf_from_template(replacements, image_path, pdf_filename):
+def create_pdf_from_template(replacements, image_path, output_folder, pdf_filename):
     # Load the Word document template
     doc = Document(LETTER_TEMPLATE)
 
@@ -50,8 +56,84 @@ def create_pdf_from_template(replacements, image_path, pdf_filename):
         doc.save(temp_doc_path)
 
     # Define PDF output path
-    pdf_output_path = os.path.join(LETTER_FOLDER, pdf_filename)
+    pdf_output_path = os.path.join(output_folder, pdf_filename)
     convert(temp_doc_path, pdf_output_path)
 
     # Remove the temporary Word document
     os.remove(temp_doc_path)
+
+def combine_pdfs(input_folder, output_folder, output_filename):
+    """
+    Combines all PDF files in a folder into a single PDF, saves it to another folder, and deletes the original PDFs.
+
+    :param input_folder: Path to the folder containing PDF files to combine.
+    :param output_folder: Path to the folder where the combined PDF will be saved.
+    :param output_filename: Name of the combined PDF file (e.g., 'combined.pdf').
+    """
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)  # Create the output folder if it doesn't exist
+    
+    pdf_writer = PdfWriter()
+    pdf_files = []  # To track PDF files for deletion
+
+    files_in_folder = sorted(os.listdir(input_folder), key = extract_number)
+    if not files_in_folder:
+        print("There is no files in Temp-Letter to combine")
+        return
+    
+    # Iterate through all files in the input folder
+    for file_name in files_in_folder:
+        file_path = os.path.join(input_folder, file_name)
+        
+        # Check if the file is a PDF
+        if file_name.lower().endswith('.pdf'):
+            try:
+                pdf_reader = PdfReader(file_path)
+                pdf_files.append(file_path)  # Add the file path to the list for deletion
+                # Add all pages from the current PDF to the writer
+                for page in pdf_reader.pages:
+                    pdf_writer.add_page(page)
+            except Exception as e:
+                print(f"Error reading {file_name}: {e}")
+    
+    # Save the combined PDF to the output folder
+    output_path = os.path.join(output_folder, output_filename)
+    with open(output_path, 'wb') as output_file:
+        pdf_writer.write(output_file)
+
+    print(f"Combined PDF saved at: {output_path}")
+
+    for pdf_file in pdf_files:
+        try:
+            os.remove(pdf_file)
+        except Exception as e:
+            pass
+
+def create_combine_letters(sheets_service, drive_service):
+
+    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Sheet1!A:H")
+
+    # Normalize all rows to ensure they have 8 elements
+    normalized_values = normalize_rows(all_values[1:], 8)
+
+    for index, row in enumerate(normalized_values, start=2):
+        if not row[7] or row[7] == "Not contacted":
+            print(index)
+            name = row[0]
+            image_link = row[6]
+            replacements = {'(NAME)': name}
+            latter_file_name = f"Letter - {index}.pdf"
+            image = download_image(drive_service, image_link)
+            create_pdf_from_template(replacements, image, TEMP_LETTER_FOLDER, latter_file_name)
+            
+            request = sheets_service.spreadsheets().values().update(
+                spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
+                range=f"Sheet1!H{index}",
+                valueInputOption="USER_ENTERED",  # Allows typing-like behavior
+                body={"values": [["Contacted / pending answer"]]}
+            )
+            execute_with_retry(request)
+            
+    current_time = datetime.now()
+    formatted_time = current_time.strftime("%d-%m-%Y-%H-%M")
+    combine_pdfs(TEMP_LETTER_FOLDER, LETTER_FOLDER, f"Letter - {formatted_time}.pdf")

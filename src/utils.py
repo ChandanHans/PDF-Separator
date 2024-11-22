@@ -1,6 +1,7 @@
 import os
 import sys
 from time import sleep
+from getch import getch as pygetch
 import time
 
 def resource_path(relative_path):
@@ -11,8 +12,17 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+def clear_display():
+    os.system("cls" if os.name == "nt" else "clear")
+
 def extract_number(filename: str):
     return int(filename.split("-")[1].split(".")[0])
+
+def getch():
+    if sys.platform == "win32":
+        return pygetch().decode().lower()
+    else:
+        return pygetch().lower()
 
 def countdown(text: str, t: int):
     while t >= 0:
@@ -39,3 +49,15 @@ def execute_with_retry(request, retries=10, initial_delay=1):
             time.sleep(delay)
             delay *= 2  # Exponential backoff
     raise Exception(f"Max retries reached for request: {request.uri}")
+
+def normalize_rows(data, target_length):
+    normalized_data = []
+    for row in data:
+        # Pad the row with empty strings if it's shorter than the target length
+        while len(row) < target_length:
+            row.append("")
+        # Trim the row if it's longer than the target length (unlikely in this case)
+        if len(row) > target_length:
+            row = row[:target_length]
+        normalized_data.append(row)
+    return normalized_data

@@ -57,14 +57,10 @@ def upload_image_and_append_sheet(
     return file_link
 
 
-def get_existing_image_names(sheets_service, sheet_id):
-    """
-    Retrieve and cache the existing image names from the Google Sheet.
-    This function is called once to avoid multiple requests to the sheet.
-    """
+def get_table_data(sheets_service, sheet_id, range):
     request = sheets_service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range="Sheet1!A:B", 
+            range=range, 
         )
     result = execute_with_retry(request)
     return result.get("values", [])

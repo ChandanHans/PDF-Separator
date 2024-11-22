@@ -19,5 +19,6 @@ NOTARY_OUTPUT_FOLDER = "./Notary"
 UNDERTAKER_OUTPUT_FOLDER = "./Undertaker"
 IMAGE_FOLDER = "./Images"
 COMPLETED_FOLDER = "./Completed"
+TEMP_LETTER_FOLDER = "./Temp-Letter"
 LETTER_FOLDER = "./Letter"
 TOKEN_FILE = 'token.pickle'

@@ -2,9 +2,12 @@
 
 import os
 import pickle
+import re
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.http import MediaFileUpload
 from google.auth.transport.requests import Request
+from googleapiclient.http import MediaIoBaseDownload
+import io
 import requests
 
 from .utils import execute_with_retry
@@ -100,3 +103,44 @@ def get_sheet_data(sheets_service, spreadsheet_id):
     request = sheets_service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=f"Sheet1!A:Z")
     result = execute_with_retry(request)
     return result.get("values", [])
+
+def download_image(drive_service, drive_link, output_path = None):
+    """
+    Download an image using a Google Drive link.
+
+    Args:
+        drive_link (str): The Google Drive link for the image.
+        output_path (str): The name of the local file to save the image.
+        drive_service: Authenticated Google Drive API service instance.
+
+    Returns:
+        str: The path of the saved file.
+    """
+    file_id = extract_file_id(drive_link)
+
+    # Request the file metadata and download the content
+    try:
+        request = drive_service.files().get_media(fileId=file_id)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+
+        if not output_path:
+            return fh
+        
+        # Save the file locally
+        with open(output_path, "wb") as f:
+            f.write(fh.getvalue())
+        return output_path
+    except Exception as e:
+        return None
+            
+# Extract file ID from Google Drive link
+def extract_file_id(drive_link):
+    match = re.search(r"[-\w]{25,}", drive_link)
+    if match:
+        return match.group(0)
+    else:
+        raise ValueError("Invalid Google Drive link")
