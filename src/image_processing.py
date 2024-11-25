@@ -78,7 +78,7 @@ def get_image_result(image_path):
 
 Please format the output as a JSON object, following this structure exactly:
 {
-    "Date of death before 2019": (if True 1 else 0) 0/1,
+    "Date of death before 2016": (if True 1 else 0) 0/1,
     "Acte de notoriété": (Word with : notoriété then 1) (Note: if mentions marginales is Neant then 0) 0/1,
     "Pompe funèbre" : (Word with : attaché funéraire / Pompes funèbres / Conseiller Funéraire / Conseillère Funéraire / gérant de pompes funèbres /  gérante de pompes funèbres/ thanatopracteur / démarcheur  /démarcheuse / assistante funéraire / assistant funéraire / chef d'agence / Agent funéraire / Directeur / Graveur / Marbrier / Cadre en Pompes Funebres /  etc) 0/1,
     "About Deceased Person" : {
