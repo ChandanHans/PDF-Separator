@@ -10,7 +10,7 @@ from googleapiclient.http import MediaIoBaseDownload
 import io
 import requests
 
-from .utils import execute_with_retry
+from .utils import *
 from .constants import CREDS_JSON, TOKEN_FILE
 
 SCOPES = [
@@ -43,6 +43,12 @@ def authenticate_google_drive():
         with open(TOKEN_FILE, "rb") as token:
             creds = pickle.load(token)
 
+    if creds and creds.expired and creds.refresh_token:
+        print("Refreshing expired token...")
+        creds.refresh(Request())  # Automatically refresh the token
+        with open(TOKEN_FILE, "wb") as token:
+            pickle.dump(creds, token)
+
     # Check if the credentials are valid or can be refreshed
     if creds and creds.valid:
         # Get the current user email from the creds
@@ -55,12 +61,6 @@ def authenticate_google_drive():
         )
         if choice != "n":
             return creds  # Return the current credentials if the user chooses "current"
-    elif creds and creds.expired and creds.refresh_token:
-        print("Refreshing expired token...")
-        creds.refresh(Request())  # Automatically refresh the token
-        with open(TOKEN_FILE, "wb") as token:
-            pickle.dump(creds, token)
-        return creds
 
     # If no valid credentials, run OAuth flow to get new credentials
     print("No valid credentials found. Please log in.")
@@ -91,18 +91,6 @@ def delete_file_from_drive(service, file_id):
     print(f"Deleted file with ID {file_id} from Google Drive")
 
 
-def get_sheet_data(sheets_service, spreadsheet_id):
-    """
-    Get all the data from a specific Google Sheet.
-
-    :param sheets_service: The Google Sheets API service object.
-    :param spreadsheet_id: The ID of the spreadsheet where the sheet is located.
-    :param sheet_id: The ID of the sheet to fetch data from.
-    :return: A list of rows containing cell data.
-    """
-    request = sheets_service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=f"Sheet1!A:Z")
-    result = execute_with_retry(request)
-    return result.get("values", [])
 
 def download_image(drive_service, drive_link, output_path = None):
     """
@@ -137,10 +125,11 @@ def download_image(drive_service, drive_link, output_path = None):
     except Exception as e:
         return None
             
-# Extract file ID from Google Drive link
-def extract_file_id(drive_link):
-    match = re.search(r"[-\w]{25,}", drive_link)
-    if match:
-        return match.group(0)
-    else:
-        raise ValueError("Invalid Google Drive link")
+    
+def get_table_data(sheets_service, sheet_id, range):
+    request = sheets_service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=range, 
+        )
+    result = execute_with_retry(request)
+    return result.get("values", [])

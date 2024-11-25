@@ -4,6 +4,8 @@ import fitz
 from tqdm import tqdm
 from PIL import Image, ImageEnhance
 
+from .drive_upload import get_table_data
+
 from .constants import *
 from .image_processing import *
 
@@ -113,7 +115,7 @@ def separate_pdfs(sheets_service, drive_service):
                         new_row = (name, dod, city, relative, relative_address, relation, file_link)
                         request = sheets_service.spreadsheets().values().append(
                                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                                range="Sheet1!A:G",
+                                range="Héritier Annuaire!A:G",
                                 valueInputOption="RAW",
                                 body={"values": [new_row]},
                             )

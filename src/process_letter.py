@@ -5,8 +5,7 @@ from docx import Document
 from docx2pdf import convert
 from PyPDF2 import PdfReader, PdfWriter
 
-from .drive_upload import download_image
-from .image_processing import get_table_data
+from .drive_upload import download_image, get_table_data
 from .utils import execute_with_retry, extract_number, normalize_rows
 
 from .constants import *
@@ -111,7 +110,7 @@ def combine_pdfs(input_folder, output_folder, output_filename):
 
 def create_combine_letters(sheets_service, drive_service):
 
-    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Sheet1!A:H")
+    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:H")
 
     # Normalize all rows to ensure they have 8 elements
     normalized_values = normalize_rows(all_values[1:], 8)
@@ -128,7 +127,7 @@ def create_combine_letters(sheets_service, drive_service):
             
             request = sheets_service.spreadsheets().values().update(
                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                range=f"Sheet1!H{index}",
+                range=f"Héritier Annuaire!H{index}",
                 valueInputOption="USER_ENTERED",  # Allows typing-like behavior
                 body={"values": [["Contacted / pending answer"]]}
             )

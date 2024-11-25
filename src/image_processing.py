@@ -56,15 +56,6 @@ def upload_image_and_append_sheet(
     existing_images.append(row_data)
     return file_link
 
-
-def get_table_data(sheets_service, sheet_id, range):
-    request = sheets_service.spreadsheets().values().get(
-            spreadsheetId=sheet_id,
-            range=range, 
-        )
-    result = execute_with_retry(request)
-    return result.get("values", [])
-
 openai_client = OpenAI(api_key=GPT_KEY)
 
 

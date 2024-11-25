@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from time import sleep
 from getch import getch as pygetch
@@ -61,3 +62,11 @@ def normalize_rows(data, target_length):
             row = row[:target_length]
         normalized_data.append(row)
     return normalized_data
+
+# Extract file ID from Google Drive link
+def extract_file_id(drive_link):
+    match = re.search(r"[-\w]{25,}", drive_link)
+    if match:
+        return match.group(0)
+    else:
+        raise ValueError("Invalid Google Drive link")
