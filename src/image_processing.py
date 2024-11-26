@@ -90,13 +90,28 @@ Task Requirements:
         - Otherwise, return 0.
         
 4. Extract Information About the Deceased Person
-    "Deceased person full name": Extract from the beginning of the text.
-    "Date of Death": Format as dd/mm/yyyy.
-    "City of death": Extract the city name.
-    "Relative Name": (from delaration section) Extract the name of the relative (not the relationship) (if there no relative name in delaration section then "").
-    "Relative Address": (from delaration section) Extract the full address from the declaration section.
-    "Relation with Deceased person": (from delaration section) Extract the relationship (e.g., fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...).
-    "Name of spouse or partner": Extract the name of the spouse, partner, or significant other mentioned (e.g., époux, épouse, concubin, concubine, mari, femme, pacsé etc.).
+    "Deceased person full name": 
+        - Extract from the beginning of the text.
+    "Date of Death": 
+        - Format as dd/mm/yyyy.
+    "City of death": 
+        - Extract the city name.
+    "Relative Name": 
+        - from delaration section
+        - not the relationship
+        - Extract the name of the relative
+        - if there no relative name in delaration section then "".
+        - hints : search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in delaration section.
+    "Relative Address": 
+        - Extract the full address from the declaration section.
+    "Relation with Deceased person": 
+        - from delaration section
+        - Extract the relation of the Relative
+        - e.g., fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...
+    "Name of spouse": 
+        - before delaration section
+        - Extract the name of the spouse 
+        - hints : search for word like (époux, épouse, concubin, concubine, mari, femme, pacsé etc.) before delaration section.
 
 Output Format:
 Return the results as a JSON object, strictly adhering to this structure:
@@ -113,7 +128,7 @@ json
         "Relative Name": "",
         "Relative Address": "",
         "Relation with Deceased person": "",
-        "Name of spouse or partner": ""
+        "Name of spouse": ""
     }
 }
     """
