@@ -110,16 +110,16 @@ def combine_pdfs(input_folder, output_folder, output_filename):
 
 def create_combine_letters(sheets_service, drive_service):
 
-    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:H")
+    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:I")
 
     # Normalize all rows to ensure they have 8 elements
-    normalized_values = normalize_rows(all_values[1:], 8)
+    normalized_values = normalize_rows(all_values[1:], 9)
 
     for index, row in enumerate(normalized_values, start=2):
-        if not row[7] or row[7] == "Not contacted":
+        if not row[8] or row[8] == "Not contacted":
             print(index)
             name = row[0]
-            image_link = row[6]
+            image_link = row[7]
             replacements = {'(NAME)': name}
             latter_file_name = f"Letter - {index}.pdf"
             image = download_image(drive_service, image_link)
@@ -127,7 +127,7 @@ def create_combine_letters(sheets_service, drive_service):
             
             request = sheets_service.spreadsheets().values().update(
                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                range=f"Héritier Annuaire!H{index}",
+                range=f"Héritier Annuaire!I{index}",
                 valueInputOption="USER_ENTERED",  # Allows typing-like behavior
                 body={"values": [["Contacted / pending answer"]]}
             )

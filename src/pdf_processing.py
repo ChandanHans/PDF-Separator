@@ -108,14 +108,14 @@ def separate_pdfs(sheets_service, drive_service):
                         na_images.append(image_path)
                     else:
                         details = list(result[3].values())
-                        name, dod, city, relative, relative_address, relation = details
+                        name, dod, city, relative, relative_address, relation, partner = details
                         file_link = upload_image_and_append_sheet(
                             name, image_path, drive_service, sheets_service, existing_images
                         )
-                        new_row = (name, dod, city, relative, relative_address, relation, file_link)
+                        new_row = (name, dod, city, relative, relative_address, relation, partner, file_link, "Not contacted")
                         request = sheets_service.spreadsheets().values().append(
                                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                                range="Héritier Annuaire!A:G",
+                                range="Héritier Annuaire!A:I",
                                 valueInputOption="RAW",
                                 body={"values": [new_row]},
                             )
