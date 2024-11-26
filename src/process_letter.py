@@ -109,7 +109,9 @@ def combine_pdfs(input_folder, output_folder, output_filename):
             pass
 
 def create_combine_letters(sheets_service, drive_service):
-
+    today = datetime.now().date()
+    new_date_text = today.strftime("%d-%b-%Y")
+    
     all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:I")
 
     # Normalize all rows to ensure they have 8 elements
@@ -127,9 +129,9 @@ def create_combine_letters(sheets_service, drive_service):
             
             request = sheets_service.spreadsheets().values().update(
                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                range=f"Héritier Annuaire!I{index}",
+                range=f"Héritier Annuaire!I{index}:J{index}",
                 valueInputOption="USER_ENTERED",  # Allows typing-like behavior
-                body={"values": [["Contacted / pending answer"]]}
+                body={"values": [["Contacted / pending answer", new_date_text]]}
             )
             execute_with_retry(request)
             

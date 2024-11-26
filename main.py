@@ -4,6 +4,9 @@ check_for_updates()
 import os
 from googleapiclient.discovery import build
 
+import locale
+locale.setlocale(locale.LC_TIME, "fr_FR")
+
 from src.pdf_processing import *
 from src.image_processing import *
 from src.utils import *
