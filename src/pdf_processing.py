@@ -82,7 +82,7 @@ def separate_pdfs(sheets_service, drive_service):
         time_start = time.time()
         print(f"\nProcess Started For {pdf_name}\n")
         # Convert PDF to images
-        # pdf_to_images(pdf_path, IMAGE_FOLDER, 200, 3)
+        pdf_to_images(pdf_path, IMAGE_FOLDER, 200, 3)
 
         images = [
             file for file in os.listdir(IMAGE_FOLDER) if file.lower().endswith(".png")
