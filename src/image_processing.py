@@ -104,6 +104,9 @@ Task Requirements:
         - hints : search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in delaration section.
     - For "Relative Address": 
         - Extract the full address from the declaration section.
+    - For "Zip code":
+        - Return the Zip code of Relative Address.
+        - It may not be inthe Text but returnit yourself
     - For "Relation with Deceased person": 
         - Extract from delaration section
         - Extract the relation of the Relative.
@@ -127,6 +130,7 @@ json
         "City of death": "",
         "Relative Name": "",
         "Relative Address": "",
+        "Zip code":"",
         "Relation with Deceased person": "",
         "Name of spouse": ""
     }

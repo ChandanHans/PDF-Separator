@@ -82,7 +82,7 @@ def separate_pdfs(sheets_service, drive_service):
         time_start = time.time()
         print(f"\nProcess Started For {pdf_name}\n")
         # Convert PDF to images
-        pdf_to_images(pdf_path, IMAGE_FOLDER, 200, 3)
+        # pdf_to_images(pdf_path, IMAGE_FOLDER, 200, 3)
 
         images = [
             file for file in os.listdir(IMAGE_FOLDER) if file.lower().endswith(".png")
@@ -108,14 +108,14 @@ def separate_pdfs(sheets_service, drive_service):
                         na_images.append(image_path)
                     else:
                         details = list(result[3].values())
-                        name, dod, city, relative, relative_address, relation, partner = details
+                        name, dod, city, relative, relative_address, zip_code, relation, partner = details
                         file_link = upload_image_and_append_sheet(
                             name, image_path, drive_service, sheets_service, existing_images
                         )
-                        new_row = (name, dod, city, relative, relative_address, relation, partner, file_link, "Not contacted")
+                        new_row = (name, dod, city, relative, relative_address, zip_code, relation, partner, file_link, "Not contacted")
                         request = sheets_service.spreadsheets().values().append(
                                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                                range="Héritier Annuaire!A:I",
+                                range="Héritier Annuaire!A:J",
                                 valueInputOption="RAW",
                                 body={"values": [new_row]},
                             )
