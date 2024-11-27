@@ -115,6 +115,7 @@ Task Requirements:
         - Search before delaration section.
         - Extract the name of the spouse.
         - hints : search for word like (époux, épouse, concubin, concubine, mari, femme, pacsé etc.) before delaration section.
+        - skip divorce info.
 
 Output Format:
 Return the results as a JSON object, strictly adhering to this structure:
