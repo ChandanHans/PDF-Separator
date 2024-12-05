@@ -2,7 +2,7 @@ import os
 import shutil
 import fitz
 from tqdm import tqdm
-from PIL import Image, ImageEnhance
+from PIL import Image
 
 from .drive_upload import get_table_data
 
@@ -41,7 +41,7 @@ def delete_images(directory_path):
             os.makedirs(directory_path)
         pass
 
-def pdf_to_images(pdf_path, output_folder, resolution, contrast_factor=3):
+def pdf_to_images(pdf_path, output_folder, resolution):
     delete_images(output_folder)
     print("\nGetting All Images From PDF...")
     doc = fitz.open(pdf_path)
@@ -51,19 +51,11 @@ def pdf_to_images(pdf_path, output_folder, resolution, contrast_factor=3):
         # Get the image of the page
         image = page.get_pixmap(matrix=fitz.Matrix(resolution / 72, resolution / 72))
         image_path = f"{output_folder}/page-{i + 1}.png"
-        
-        # Convert to PIL Image to manipulate contrast
-        pil_image = Image.frombytes("RGB", [image.width, image.height], image.samples)
-        
-        # Enhance the contrast of the image for better OCR
-        enhancer = ImageEnhance.Contrast(pil_image)
-        enhanced_image = enhancer.enhance(contrast_factor)
-        
-        # Save the enhanced image
-        enhanced_image.save(image_path)
+        image.save(image_path)
     
     doc.close()
     
+
 def separate_pdfs(sheets_service, drive_service):
     
     existing_images = get_table_data(sheets_service, IMAGE_SHEET_ID, "Sheet1!A:B")
@@ -82,7 +74,7 @@ def separate_pdfs(sheets_service, drive_service):
         time_start = time.time()
         print(f"\nProcess Started For {pdf_name}\n")
         # Convert PDF to images
-        pdf_to_images(pdf_path, IMAGE_FOLDER, 200, 3)
+        pdf_to_images(pdf_path, IMAGE_FOLDER, 200)
 
         images = [
             file for file in os.listdir(IMAGE_FOLDER) if file.lower().endswith(".png")
@@ -96,30 +88,33 @@ def separate_pdfs(sheets_service, drive_service):
             gpt_result:dict = get_image_result(image_path)  # Pass services
             if gpt_result:
                 result = list(gpt_result.values())
-                if result[1]:
+                if result[1].get("result"):
                     notary_images.append(image_path)
-                elif result[2]:
-                    if result[0]:
+                elif result[2].get("result"):
+                    if result[0].get("result"):
                         na_images.append(image_path)
                     else:
                         undertake_images.append(image_path)
-                else:
-                    if result[0]:
+                elif result[3].get("result"):
+                    if result[0].get("result"):
                         na_images.append(image_path)
                     else:
-                        details = list(result[3].values())
+                        details = list(result[4].values())
                         name, dod, city, relative, relative_address, zip_code, relation, partner = details
                         file_link = upload_image_and_append_sheet(
                             name, image_path, drive_service, sheets_service, existing_images
                         )
-                        new_row = (name, dod, city, relative, relative_address, zip_code, relation, partner, file_link, "Not contacted")
+                        json_result = json.dumps(result, indent=4, ensure_ascii=False)
+                        new_row = (name, dod, city, relative, relative_address, zip_code, relation, partner, file_link, "Not contacted","","","","A vérifier",json_result)
                         request = sheets_service.spreadsheets().values().append(
                                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                                range="Héritier Annuaire!A:J",
+                                range="Héritier Annuaire!A:O",
                                 valueInputOption="RAW",
                                 body={"values": [new_row]},
                             )
                         execute_with_retry(request)
+                else:
+                    na_images.append(image_path)
 
         combine_images_to_pdf(notary_images,f"{NOTARY_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Notary.pdf')}")
         combine_images_to_pdf(undertake_images,f"{UNDERTAKER_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Undertaker.pdf')}")

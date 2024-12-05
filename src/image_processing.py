@@ -5,6 +5,7 @@ import pytesseract
 from openai import OpenAI
 from unidecode import unidecode
 from googleapiclient.http import MediaFileUpload
+from PIL import Image, ImageEnhance
 
 from .constants import *
 from .utils import *
@@ -60,7 +61,8 @@ openai_client = OpenAI(api_key=GPT_KEY)
 
 
 def get_image_result(image_path):
-    text = pytesseract.image_to_string(image_path, lang="fra")
+    image = change_contrast(image_path, 1.5)
+    text = pytesseract.image_to_string(image, lang="fra", config= r'--oem 3 --psm 6')
     prompt = (
         "Text:\n"
         + text
@@ -74,20 +76,36 @@ Task Requirements:
     - Don't change any case because I Identify fname and lname with case.
 
 3. Logic for Key Fields
-
     - For "Date of death before 2016":
-        - Return 1 if the date of death is before 2016; otherwise, return 0.
+        - result:
+            - Return 1 if the date of death is before 2016; otherwise, return 0.
+        - why:
+            - explain
     - For "Acte de notoriété":
-        - Return 1 if the word notoriété is found in the text.
-        - If "mentions marginales" contains the word Neant, return 0.
+        - result:
+            - Return 1 if the word "notoriete" is found in the text.
+            - Note: If there is "mentions marginales" and contains the word Neant then return 0.
+        - why:
+            - explain
     - For "Pompe funèbre":
-        - Return 1 if any of the following keywords are found:
-            attaché funéraire, Pompes funèbres, Conseiller Funéraire, Conseillère Funéraire,
-            gérant de pompes funèbres, gérante de pompes funèbres, thanatopracteur,
-            démarcheur, démarcheuse, assistante funéraire, assistant funéraire,
-            chef d'agence, Agent funéraire, Directeur, Graveur, Marbrier,
-            Cadre en Pompes Funebres, etc.
-        - Otherwise, return 0.
+        - result:
+            - Return 1 if any of the following keywords are found:
+                attaché funéraire, Pompes funèbres, Conseiller Funéraire, Conseillère Funéraire,
+                gérant de pompes funèbres, gérante de pompes funèbres, thanatopracteur,
+                démarcheur, démarcheuse, assistante funéraire, assistant funéraire,
+                chef d'agence, Agent funéraire, Directeur, Graveur, Marbrier,
+                Cadre en Pompes Funebres, etc.
+            - Otherwise, return 0.
+        - why:
+            - explain
+    - for "Relative Info":
+        - result:
+            - search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in Déclarant section.
+            - Return 1 if the word exist after the word "Déclarant :" in Déclarant section.
+            - not police officer, hospitalité, etc...
+            - Otherwise, return 0.
+        - why:
+            - explain
         
 4. Extract Information About the Deceased Person
     - For "Deceased person full name": 
@@ -97,24 +115,24 @@ Task Requirements:
     - For "City of death": 
         - Extract the city name.
     - For "Relative Name": 
-        - Extract from delaration section.
+        - Extract from Déclarant section.
         - Extract the name of the relative.
         - not the relationship.
-        - if there no relative name in delaration section then "".
-        - hints : search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in delaration section.
+        - if there no relative name in Déclarant section then "".
+        - hints : search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in Déclarant section.
     - For "Relative Address": 
         - Extract the full address from the declaration section.
     - For "Zip code":
         - Return the Zip code of Relative Address.
         - It may not be inthe Text but returnit yourself
     - For "Relation with Deceased person": 
-        - Extract from delaration section
+        - Extract from Déclarant section
         - Extract the relation of the Relative.
         - e.g., fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...
     - For "Name of spouse": 
-        - Search before delaration section.
+        - Search before Déclarant section.
         - Extract the name of the spouse.
-        - hints : search for word like (époux, épouse, concubin, concubine, mari, femme, pacsé etc.) before delaration section.
+        - hints : search for word like (époux, épouse, concubin, concubine, mari, femme, pacsé etc.) before Déclarant section.
         - skip divorce info.
 
 Output Format:
@@ -122,9 +140,22 @@ Return the results as a JSON object, strictly adhering to this structure:
 
 json
 {
-    "Date of death before 2016": 0/1,
-    "Acte de notoriété": 0/1,
-    "Pompe funèbre": 0/1,
+    "Date of death before 2016": {
+        result:0/1,
+        why:
+    },
+    "Acte de notoriété": {
+        result:0/1,
+        why:
+    },
+    "Pompe funèbre": {
+        result:0/1,
+        why:
+    },
+    "Relative Info": {
+        result:0/1,
+        why:
+    },
     "About Deceased Person": {
         "Deceased person full name": "",
         "Date of Death": "dd/mm/yyyy",
@@ -152,6 +183,14 @@ json
     result = eval(response.choices[0].message.content)
     return result
 
+def change_contrast(image_path, contrast_factor):
+    pil_image = Image.open(image_path)
+    
+    # Enhance the contrast of the image for better OCR
+    enhancer = ImageEnhance.Contrast(pil_image)
+    enhanced_image = enhancer.enhance(contrast_factor)
+    
+    return enhanced_image
 
 def check_for_tesseract():
     os_name = platform.system()
@@ -187,3 +226,5 @@ def check_for_tesseract():
         print('Install tesseract-fra with this command : "brew install tesseract-fra"')
         input()
         sys.exit()
+
+check_for_tesseract()

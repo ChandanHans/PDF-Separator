@@ -112,13 +112,13 @@ def create_combine_letters(sheets_service, drive_service):
     today = datetime.now().date()
     new_date_text = today.strftime("%d-%b-%Y")
     
-    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:J")
+    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:O")
 
     # Normalize all rows to ensure they have 8 elements
-    normalized_values = normalize_rows(all_values[1:], 10)
+    normalized_values = normalize_rows(all_values[1:], 15)
 
     for index, row in enumerate(normalized_values, start=2):
-        if not row[9] or row[9] == "Not contacted":
+        if not row[9] or row[9] == "Not contacted" and row[13] == "Vérifié":
             print(index)
             name = row[0]
             image_link = row[8]
