@@ -11,8 +11,6 @@ from .constants import *
 from .utils import *
 
 
-
-
 def clean_name_for_comparison(name: str):
     """Clean the name by removing spaces, commas, and dashes."""
     return unidecode(name).replace(" ", "").replace(",", "").replace("-", "").lower()
@@ -40,29 +38,36 @@ def upload_image_and_append_sheet(
     file_name = f"Acte de décès - {name}.png"
     file_metadata = {"name": file_name, "parents": [DEATH_CERTIFICATES_FOLDER_ID]}
     media = MediaFileUpload(image_path, mimetype="image/png")
-    request = drive_service.files().create(body=file_metadata, media_body=media, fields="id, webViewLink")
+    request = drive_service.files().create(
+        body=file_metadata, media_body=media, fields="id, webViewLink"
+    )
     uploaded_file = execute_with_retry(request)
     # Get the file ID and web link
     file_link = uploaded_file.get("webViewLink")
 
     # Append the image name and link to the Google Sheet
     row_data = [file_name, file_link]
-    request = sheets_service.spreadsheets().values().append(
-        spreadsheetId=IMAGE_SHEET_ID,
-        range="Sheet1!A:B",
-        valueInputOption="RAW",
-        body={"values": [row_data]},
+    request = (
+        sheets_service.spreadsheets()
+        .values()
+        .append(
+            spreadsheetId=IMAGE_SHEET_ID,
+            range="Sheet1!A:B",
+            valueInputOption="RAW",
+            body={"values": [row_data]},
+        )
     )
     execute_with_retry(request)
     existing_images.append(row_data)
     return file_link
+
 
 openai_client = OpenAI(api_key=GPT_KEY)
 
 
 def get_image_result(image_path):
     image = change_contrast(image_path, 1.5)
-    text = pytesseract.image_to_string(image, lang="fra", config= r'--oem 3 --psm 6')
+    text = pytesseract.image_to_string(image, lang="fra", config=r"--oem 3 --psm 6")
     prompt = (
         "Text:\n"
         + text
@@ -90,11 +95,7 @@ Task Requirements:
     - For "Pompe funèbre":
         - result:
             - Return 1 if any of the following keywords are found:
-                attaché funéraire, Pompes funèbres, Conseiller Funéraire, Conseillère Funéraire,
-                gérant de pompes funèbres, gérante de pompes funèbres, thanatopracteur,
-                démarcheur, démarcheuse, assistante funéraire, assistant funéraire,
-                chef d'agence, Agent funéraire, Directeur, Graveur, Marbrier,
-                Cadre en Pompes Funebres, etc.
+                (Assistant funéraire / Assistante funéraire, Chef d'entreprise / Cheffe d'entreprise, Conseiller Funéraire / Conseillère Funéraire, Conservateur du Cimetière / Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres / Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Directeur / Directrice, Employé PF / Employée PF, Employé Pompes Funèbres / Employée Pompes Funèbres, Dirigeant de PF / Dirigeante de PF, Dirigeant de Pompes Funèbres / Dirigeante de Pompes Funèbres, Gérant de Société / Gérante de Société, Gérant de la société / Gérante de la société, Gérant / Gérante, Directeur d'agence / Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire / Opératrice Funéraire, etc...)
             - Otherwise, return 0.
         - why:
             - explain
@@ -168,8 +169,8 @@ json
     }
 }
     """
-)
-    
+    )
+
     response = openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -178,19 +179,21 @@ json
                 "content": prompt,
             },
         ],
-        response_format={"type": "json_object"}
+        response_format={"type": "json_object"},
     )
     result = eval(response.choices[0].message.content)
     return result
 
+
 def change_contrast(image_path, contrast_factor):
     pil_image = Image.open(image_path)
-    
+
     # Enhance the contrast of the image for better OCR
     enhancer = ImageEnhance.Contrast(pil_image)
     enhanced_image = enhancer.enhance(contrast_factor)
-    
+
     return enhanced_image
+
 
 def check_for_tesseract():
     os_name = platform.system()
@@ -226,5 +229,6 @@ def check_for_tesseract():
         print('Install tesseract-fra with this command : "brew install tesseract-fra"')
         input()
         sys.exit()
+
 
 check_for_tesseract()
