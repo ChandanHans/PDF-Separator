@@ -86,20 +86,20 @@ Task Requirements:
             - Return 1 if the date of death is before 2018; otherwise, return 0.
         - why:
             - explain
-    - For "Acte de notoriété":
+    - For "word 1":
         - result:
-            - Return 1 if the word "notoriete" is found in the text.
+            - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
             - Note: If there is "mentions marginales" and contains the word Neant then return 0.
         - why:
             - explain
-    - For "Pompe funèbre":
+    - For "word 2":
         - result:
             - Return 1 if any of the following keywords are found:
                 (Assistant funéraire / Assistante funéraire, Chef d'entreprise / Cheffe d'entreprise, Conseiller Funéraire / Conseillère Funéraire, Conservateur du Cimetière / Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres / Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Directeur / Directrice, Employé PF / Employée PF, Employé Pompes Funèbres / Employée Pompes Funèbres, Dirigeant de PF / Dirigeante de PF, Dirigeant de Pompes Funèbres / Dirigeante de Pompes Funèbres, Gérant de Société / Gérante de Société, Gérant de la société / Gérante de la société, Gérant / Gérante, Directeur d'agence / Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire / Opératrice Funéraire, etc...)
             - Otherwise, return 0.
         - why:
             - explain
-    - for "Relative Info":
+    - for "word 3":
         - result:
             - search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in Déclarant section.
             - Return 1 if the word exist after the word "Déclarant :" in Déclarant section.
@@ -145,15 +145,15 @@ json
         result:0/1,
         why:
     },
-    "Acte de notoriété": {
+    "word 1": {
         result:0/1,
         why:
     },
-    "Pompe funèbre": {
+    "word 2": {
         result:0/1,
         why:
     },
-    "Relative Info": {
+    "word 3": {
         result:0/1,
         why:
     },
