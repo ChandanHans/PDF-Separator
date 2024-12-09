@@ -81,9 +81,9 @@ Task Requirements:
     - Don't change any case because I Identify fname and lname with case.
 
 3. Logic for Key Fields
-    - For "Date of death before 2016":
+    - For "Date of death before 2018":
         - result:
-            - Return 1 if the date of death is before 2016; otherwise, return 0.
+            - Return 1 if the date of death is before 2018; otherwise, return 0.
         - why:
             - explain
     - For "Acte de notoriété":
@@ -141,7 +141,7 @@ Return the results as a JSON object, strictly adhering to this structure:
 
 json
 {
-    "Date of death before 2016": {
+    "Date of death before 2018": {
         result:0/1,
         why:
     },

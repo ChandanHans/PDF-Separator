@@ -105,10 +105,10 @@ def separate_pdfs(sheets_service, drive_service):
                             name, image_path, drive_service, sheets_service, existing_images
                         )
                         json_result = json.dumps(result, indent=4, ensure_ascii=False)
-                        new_row = (name, dod, city, relative, relative_address, zip_code, relation, partner, file_link, "Not contacted","","","","A vérifier",json_result)
+                        new_row = (name, dod, city, relative, relative_address, zip_code, relation, partner, file_link, "Not contacted","","","A vérifier",json_result)
                         request = sheets_service.spreadsheets().values().append(
                                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                                range="Héritier Annuaire!A:O",
+                                range="Héritier Annuaire!A:N",
                                 valueInputOption="RAW",
                                 body={"values": [new_row]},
                             )
