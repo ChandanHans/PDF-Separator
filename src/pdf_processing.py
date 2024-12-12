@@ -88,27 +88,33 @@ def separate_pdfs(sheets_service, drive_service):
             gpt_result:dict = get_image_result(image_path)  # Pass services
             if gpt_result:
                 result = list(gpt_result.values())
-                if result[1].get("result"):
+                print(json.dumps(result, indent=4, ensure_ascii=False))
+                details = list(result[4].values())
+                name, dod, city, relative, relative_address, relative_city, zip_code, relation, partner = details
+                
+                if result[3].get("result"):
+                    time_checked = is_before(dod, 2017)
+                else:
+                    time_checked = is_before(dod, 2019)
+                    
+                if result[0].get("result"):
                     notary_images.append(image_path)
-                elif result[2].get("result"):
-                    if result[0].get("result"):
+                elif result[1].get("result"):
+                    if time_checked:
                         na_images.append(image_path)
                     else:
                         undertake_images.append(image_path)
-                elif result[3].get("result"):
-                    if result[0].get("result"):
+                elif result[2].get("result"):
+                    if time_checked:
                         na_images.append(image_path)
                     else:
-                        details = list(result[4].values())
-                        name, dod, city, relative, relative_address, zip_code, relation, partner = details
                         file_link = upload_image_and_append_sheet(
                             name, image_path, drive_service, sheets_service, existing_images
                         )
-                        json_result = json.dumps(result, indent=4, ensure_ascii=False)
-                        new_row = (name, dod, city, relative, relative_address, zip_code, relation, partner, file_link, "Not contacted","","","A vérifier",json_result)
+                        new_row = (name, dod, city, relative, relative_address, relative_city , zip_code, relation, partner, file_link, "Not contacted","","","A vérifier","No")
                         request = sheets_service.spreadsheets().values().append(
                                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                                range="Héritier Annuaire!A:N",
+                                range="Héritier Annuaire!A:O",
                                 valueInputOption="RAW",
                                 body={"values": [new_row]},
                             )

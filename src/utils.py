@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import re
 import sys
@@ -70,3 +71,11 @@ def extract_file_id(drive_link):
         return match.group(0)
     else:
         raise ValueError("Invalid Google Drive link")
+    
+def is_before(date_text, year):
+    try:
+        input_date = datetime.strptime(date_text, "%d/%m/%Y")
+        threshold_date = datetime(year, 1, 1)
+        return input_date < threshold_date
+    except ValueError:
+        return False

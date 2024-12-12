@@ -13,7 +13,7 @@ from .utils import *
 
 def clean_name_for_comparison(name: str):
     """Clean the name by removing spaces, commas, and dashes."""
-    return unidecode(name).replace(" ", "").replace(",", "").replace("-", "").lower()
+    return unidecode(name).replace(" ", "").replace(",", "").replace("-", "")
 
 
 def upload_image_and_append_sheet(
@@ -67,8 +67,8 @@ openai_client = OpenAI(api_key=GPT_KEY)
 
 def get_image_result(image_path):
     image = change_contrast(image_path, 1.5)
-    text = pytesseract.image_to_string(image, lang="fra", config=r"--oem 3 --psm 6")
-    prompt = (
+    text: str = pytesseract.image_to_string(image, lang="fra", config=r"--oem 3 --psm 6")
+    prompt1 = (
         "Text:\n"
         + text
         + """
@@ -81,33 +81,13 @@ Task Requirements:
     - Don't change any case because I Identify fname and lname with case.
 
 3. Logic for Key Fields
-    - For "Date of death before 2018":
+    - for "Address is under Paris":
         - result:
-            - Return 1 if the date of death is before 2018; otherwise, return 0.
-        - why:
-            - explain
-    - For "word 1":
-        - result:
-            - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
-            - Note: If there is "mentions marginales" and contains the word Neant then return 0.
-        - why:
-            - explain
-    - For "word 2":
-        - result:
-            - Return 1 if any of the following keywords are found:
-                (Assistant funéraire / Assistante funéraire, Chef d'entreprise / Cheffe d'entreprise, Conseiller Funéraire / Conseillère Funéraire, Conservateur du Cimetière / Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres / Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Directeur / Directrice, Employé PF / Employée PF, Employé Pompes Funèbres / Employée Pompes Funèbres, Dirigeant de PF / Dirigeante de PF, Dirigeant de Pompes Funèbres / Dirigeante de Pompes Funèbres, Gérant de Société / Gérante de Société, Gérant de la société / Gérante de la société, Gérant / Gérante, Directeur d'agence / Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire / Opératrice Funéraire, etc...)
+            - Return 1 if the Deceased person person is under Paris (Department 75).
             - Otherwise, return 0.
         - why:
             - explain
-    - for "word 3":
-        - result:
-            - search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in Déclarant section.
-            - Return 1 if the word exist after the word "Déclarant :" in Déclarant section.
-            - not police officer, hospitalité, etc...
-            - Otherwise, return 0.
-        - why:
-            - explain
-        
+            
 4. Extract Information About the Deceased Person
     - For "Deceased person full name": 
         - Extract from the beginning of the text.
@@ -122,7 +102,9 @@ Task Requirements:
         - if there no relative name in Déclarant section then "".
         - hints : search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in Déclarant section.
     - For "Relative Address": 
-        - Extract the full address from the declaration section.
+        - Extract Address from the full address from the declaration section.
+    - For "Relative City": 
+        - Extract only City of full address from the declaration section.
     - For "Zip code":
         - Return the Zip code of Relative Address.
         - It may not be inthe Text but returnit yourself
@@ -141,10 +123,68 @@ Return the results as a JSON object, strictly adhering to this structure:
 
 json
 {
-    "Date of death before 2018": {
+    "Address is under Paris" : {
         result:0/1,
         why:
     },
+    "About Deceased Person": {
+        "Deceased person full name": "",
+        "Date of Death": "dd/mm/yyyy",
+        "City of death": "",
+        "Relative Name": "",
+        "Relative Address": "",
+        "Relative City": "",
+        "Zip code":"",
+        "Relation with Deceased person": "",
+        "Name of spouse": ""
+    }
+}
+    """
+    )
+
+    response1 = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt1,
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
+    result1 = eval(response1.choices[0].message.content)
+
+    a = unidecode(text).lower().split("clarant",1)
+    b = unidecode(text).lower().split("claration",1)
+    text2 = a[1] if len(a)>1 else b[1] if len(b)>1 else text
+    
+    prompt2 = f'Dead person name : {list(list(result1.values())[1].values())[0]}\n\n Text:\n\n ""'+ text2 + """""
+        
+    - For "word 1":
+        - result:
+            - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
+            - Note: If there is "mentions marginales" and contains the word Neant then return 0.
+        - why:
+            - explain
+    - For "word 2":
+        - result:
+            - Return 1 if any of the following keywords are found:
+                (Funéraire, Assistant funéraire / Assistante funéraire, Chef d'entreprise / Cheffe d'entreprise, Conseiller Funéraire / Conseillère Funéraire, Conservateur du Cimetière / Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres / Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Directeur / Directrice, Employé PF / Employée PF, Employé Pompes Funèbres / Employée Pompes Funèbres, Dirigeant de PF / Dirigeante de PF, Dirigeant de Pompes Funèbres / Dirigeante de Pompes Funèbres, Gérant de Société / Gérante de Société, Gérant de la société / Gérante de la société, Gérant / Gérante, Directeur d'agence / Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire / Opératrice Funéraire, etc...)
+            - Search in Déclarant section.
+            - Otherwise, return 0.
+        - why:
+            - explain
+    - for "word 3":
+        - result:
+            - search for word fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami or amie.
+            - Return 1 if any of the word exist in the text.
+            - or Return 1 if there any relative name like same last name.
+            - Otherwise, return 0.
+        - why:
+            - explain
+        
+return json:
+{
     "word 1": {
         result:0/1,
         why:
@@ -156,34 +196,24 @@ json
     "word 3": {
         result:0/1,
         why:
-    },
-    "About Deceased Person": {
-        "Deceased person full name": "",
-        "Date of Death": "dd/mm/yyyy",
-        "City of death": "",
-        "Relative Name": "",
-        "Relative Address": "",
-        "Zip code":"",
-        "Relation with Deceased person": "",
-        "Name of spouse": ""
     }
 }
-    """
-    )
-
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
+"""
+    response2 = openai_client.chat.completions.create(
+        model="gpt-3.5-turbo",
         messages=[
             {
                 "role": "user",
-                "content": prompt,
+                "content": prompt2,
             },
         ],
         response_format={"type": "json_object"},
     )
-    result = eval(response.choices[0].message.content)
-    return result
+    result2 = eval(response2.choices[0].message.content)
 
+    result = result2 | result1
+
+    return result
 
 def change_contrast(image_path, contrast_factor):
     pil_image = Image.open(image_path)

@@ -41,8 +41,8 @@ def create_pdf_from_template(replacements, image_path, output_folder, pdf_filena
 
     # Ensure the image spans a full page
     section = doc.sections[0]
-    page_width = section.page_width - section.left_margin - section.right_margin
-    page_height = section.page_height - section.top_margin - section.bottom_margin
+    page_width = section.page_width - section.left_margin
+    page_height = section.page_height - section.top_margin
 
     # Add the image to the document and adjust size to full page
     paragraph = doc.add_paragraph()
@@ -112,16 +112,16 @@ def create_combine_letters(sheets_service, drive_service):
     today = datetime.now().date()
     new_date_text = today.strftime("%d-%b-%Y")
     
-    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:N")
+    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:O")
 
     # Normalize all rows to ensure they have 8 elements
-    normalized_values = normalize_rows(all_values[1:], 14)
+    normalized_values = normalize_rows(all_values[1:], 15)
 
     for index, row in enumerate(normalized_values, start=2):
-        if not row[9] or row[9] == "Not contacted" and row[12] == "Vérifié":
+        if not row[10] or row[10] == "Not contacted" and row[13] == "Vérifié":
             print(index)
             name = row[0]
-            image_link = row[8]
+            image_link = row[9]
             replacements = {'(NAME)': name}
             latter_file_name = f"Letter - {index}.pdf"
             image = download_image(drive_service, image_link)
@@ -129,7 +129,7 @@ def create_combine_letters(sheets_service, drive_service):
             
             request = sheets_service.spreadsheets().values().update(
                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                range=f"Héritier Annuaire!J{index}:K{index}",
+                range=f"Héritier Annuaire!K{index}:L{index}",
                 valueInputOption="USER_ENTERED",  # Allows typing-like behavior
                 body={"values": [["Contacted / pending answer", new_date_text]]}
             )
