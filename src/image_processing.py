@@ -82,11 +82,8 @@ Task Requirements:
 
 3. Logic for Key Fields
     - for "Address is under Paris":
-        - result:
-            - Return 1 if the Deceased person person is under Paris (Department 75).
-            - Otherwise, return 0.
-        - why:
-            - explain
+        - Return 1 if the Deceased person person is under Paris (Department 75).
+        - Otherwise, return 0.
             
 4. Extract Information About the Deceased Person
     - For "Deceased person full name": 
@@ -123,10 +120,7 @@ Return the results as a JSON object, strictly adhering to this structure:
 
 json
 {
-    "Address is under Paris" : {
-        result:0/1,
-        why:
-    },
+    "Address is under Paris" : 0/1,
     "About Deceased Person": {
         "Deceased person full name": "",
         "Date of Death": "dd/mm/yyyy",
@@ -161,46 +155,28 @@ json
     prompt2 = f'Dead person name : {list(list(result1.values())[1].values())[0]}\n\n Text:\n\n ""'+ text2 + """""
         
     - For "word 1":
-        - result:
-            - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
-            - Note: If there is "mentions marginales" and contains the word Neant then return 0.
-        - why:
-            - explain
+        - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
+        - Note: If there is "mentions marginales" and contains the word Neant then return 0.
     - For "word 2":
-        - result:
-            - Return 1 if any of the following keywords are found:
-                (Funéraire, Assistant funéraire / Assistante funéraire, Chef d'entreprise / Cheffe d'entreprise, Conseiller Funéraire / Conseillère Funéraire, Conservateur du Cimetière / Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres / Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Directeur / Directrice, Employé PF / Employée PF, Employé Pompes Funèbres / Employée Pompes Funèbres, Dirigeant de PF / Dirigeante de PF, Dirigeant de Pompes Funèbres / Dirigeante de Pompes Funèbres, Gérant de Société / Gérante de Société, Gérant de la société / Gérante de la société, Gérant / Gérante, Directeur d'agence / Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire / Opératrice Funéraire, etc...)
-            - Search in Déclarant section.
-            - Otherwise, return 0.
-        - why:
-            - explain
+        - Return 1 if any of the following keywords are found:
+            (Funéraire, Assistant funéraire / Assistante funéraire, Chef d'entreprise / Cheffe d'entreprise, Conseiller Funéraire / Conseillère Funéraire, Conservateur du Cimetière / Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres / Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Employé PF / Employée PF, Employé Pompes Funèbres / Employée Pompes Funèbres, Dirigeant de PF / Dirigeante de PF, Dirigeant de Pompes Funèbres / Dirigeante de Pompes Funèbres, Gérant de Société / Gérante de Société, Gérant de la société / Gérante de la société, Gérant / Gérante, Directeur d'agence / Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire / Opératrice Funéraire, etc...)
+        - Search in Déclarant section.
+        - Otherwise, return 0.
     - for "word 3":
-        - result:
-            - search for word fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami or amie.
-            - Return 1 if any of the word exist in the text.
-            - or Return 1 if there any relative name like same last name.
-            - Otherwise, return 0.
-        - why:
-            - explain
+        - search for word fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami or amie.
+        - Return 1 if any of the word exist in the text.
+        - or Return 1 if there any relative name like same last name.
+        - Otherwise, return 0.
         
 return json:
 {
-    "word 1": {
-        result:0/1,
-        why:
-    },
-    "word 2": {
-        result:0/1,
-        why:
-    },
-    "word 3": {
-        result:0/1,
-        why:
-    }
+    "word 1": 0/1,
+    "word 2": 0/1,
+    "word 3": 0/1,
 }
 """
     response2 = openai_client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "user",
@@ -213,6 +189,17 @@ return json:
 
     result = result2 | result1
 
+    list1 = ["Funéraire", "Assistant funéraire", "Assistante funéraire", "Chef d'entreprise", "Cheffe d'entreprise", "Conseiller Funéraire", "Conseillère Funéraire", "Conservateur du Cimetière", "Conservatrice du Cimetière", "Conservateur du cimetière", "Chef d'entreprise de Pompes Funèbres", "Cheffe d'entreprise de Pompes Funèbres", "Services Funéraires", "Employé PF", "Employée PF", "Employé Pompes Funèbres", "Employée Pompes Funèbres", "Dirigeant de PF" , "Dirigeante de PF", "Dirigeant de Pompes Funèbres" , "Dirigeante de Pompes Funèbres", "Gérant de Société" , "Gérante de Société", "Gérant de la société" , "Gérante de la société", "Gérant" , "Gérante", "Directeur d'agence", "Directrice d'agence", "Responsable des services", "Responsable d'agence", "Porteur funéraire", "Pompes Funèbres", "Pompe Funèbre", "Opérateur Funéraire", "Opératrice Funéraire", "chauffeur porteur"]
+    
+    list2 = ["fils", "fille", "père", "mère", "frère", "sœur", "cousin", "cousine", "neveu", "nièce", "oncle", "tante", "Epoux", "Epouse", "petits fils", "petite fille", "compagne", "compagnon", "concubin", "concubine", "ex-époux", "ex-épouse", "ex-mari", "ex-femme"]
+    
+    if check_for_text(["notoriete"], text2):
+        result["word 1"] = 1
+    if check_for_text(list1, text2):
+        result["word 2"] = 1
+    if check_for_text(list2, text2):
+        result["word 3"] = 1
+        
     return result
 
 def change_contrast(image_path, contrast_factor):
@@ -224,6 +211,14 @@ def change_contrast(image_path, contrast_factor):
 
     return enhanced_image
 
+def check_for_text(words, sentence):
+    sentence = re.sub(r'\s+', '', unidecode(sentence)).lower()
+    for word in words:
+        word = re.sub(r'\s+', '', unidecode(word)).lower()
+        if word in sentence:
+            return True
+    return False
+    
 
 def check_for_tesseract():
     os_name = platform.system()

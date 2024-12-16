@@ -88,23 +88,22 @@ def separate_pdfs(sheets_service, drive_service):
             gpt_result:dict = get_image_result(image_path)  # Pass services
             if gpt_result:
                 result = list(gpt_result.values())
-                print(json.dumps(result, indent=4, ensure_ascii=False))
                 details = list(result[4].values())
                 name, dod, city, relative, relative_address, relative_city, zip_code, relation, partner = details
                 
-                if result[3].get("result"):
+                if result[3]:
                     time_checked = is_before(dod, 2017)
                 else:
                     time_checked = is_before(dod, 2019)
                     
-                if result[0].get("result"):
+                if result[0]:
                     notary_images.append(image_path)
-                elif result[1].get("result"):
+                elif result[1]:
                     if time_checked:
                         na_images.append(image_path)
                     else:
                         undertake_images.append(image_path)
-                elif result[2].get("result"):
+                elif result[2]:
                     if time_checked:
                         na_images.append(image_path)
                     else:
