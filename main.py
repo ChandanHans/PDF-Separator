@@ -12,7 +12,7 @@ from src.image_processing import *
 from src.utils import *
 from src.constants import *
 from src.drive_upload import *
-from src.process_letter import create_combine_letters
+from src.process_letters import create_combine_letters
 
 def main():
     # Authenticate Google Drive once and get the service instances

@@ -5,6 +5,7 @@ from docx import Document
 from docx2pdf import convert
 from PyPDF2 import PdfReader, PdfWriter
 
+from .process_labels import create_labels
 from .drive_upload import download_image, get_table_data
 from .utils import execute_with_retry, extract_number, normalize_rows
 
@@ -112,11 +113,11 @@ def create_combine_letters(sheets_service, drive_service):
     today = datetime.now().date()
     new_date_text = today.strftime("%d-%b-%Y")
     
-    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:O")
+    all_values = get_table_data(sheets_service, ANNUAIRE_HERITIERS_SHEET_ID, "Héritier Annuaire!A:N")
 
     # Normalize all rows to ensure they have 8 elements
-    normalized_values = normalize_rows(all_values[1:], 15)
-
+    normalized_values : list[str] = normalize_rows(all_values[1:], 14)
+    labels = []
     for index, row in enumerate(normalized_values, start=2):
         if not row[10] or row[10] == "Not contacted" and row[13] == "Vérifié":
             print(index)
@@ -134,7 +135,12 @@ def create_combine_letters(sheets_service, drive_service):
                 body={"values": [["Contacted / pending answer", new_date_text]]}
             )
             execute_with_retry(request)
+            heir_full_name : str = row[3]
+            city = row[5].split("(")[0]
+            heir_name = "".join((heir_full_name.split()[0],heir_full_name.split()[-1]))
+            labels.append((heir_name,row[4],row[6],city))
             
     current_time = datetime.now()
     formatted_time = current_time.strftime("%d-%m-%Y-%H-%M")
     combine_pdfs(TEMP_LETTER_FOLDER, LETTER_FOLDER, f"Letters - {formatted_time}.pdf")
+    create_labels(labels, LETTER_FOLDER, f"Labels - {formatted_time}.pdf")
