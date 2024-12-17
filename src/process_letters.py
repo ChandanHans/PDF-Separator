@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import re
 import tempfile
 from docx import Document
 from docx2pdf import convert
@@ -137,7 +138,7 @@ def create_combine_letters(sheets_service, drive_service):
             execute_with_retry(request)
             heir_full_name : str = row[3]
             city = row[5].split("(")[0]
-            heir_name = "".join((heir_full_name.split()[0],heir_full_name.split()[-1]))
+            heir_name = " ".join((re.split(r'[ ,]+', heir_full_name)[0],re.split(r'[ ,]+', heir_full_name)[-1]))
             labels.append((heir_name,row[4],row[6],city))
             
     current_time = datetime.now()

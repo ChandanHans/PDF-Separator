@@ -104,7 +104,7 @@ Task Requirements:
         - Extract only City of full address from the declaration section.
     - For "Zip code":
         - Return the Zip code of Relative Address.
-        - It may not be inthe Text but returnit yourself
+        - It may not be in the Text but return it yourself
     - For "Relation with Deceased person": 
         - Extract from Déclarant section
         - Extract the relation of the Relative.
