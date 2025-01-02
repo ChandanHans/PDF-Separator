@@ -45,6 +45,7 @@ def main():
 
 if __name__ == "__main__":
     os.makedirs(INPUT_FOLDER, exist_ok=True)
+    os.makedirs(HEIR_OUTPUT_FOLDER, exist_ok=True)
     os.makedirs(NOTARY_OUTPUT_FOLDER, exist_ok=True)
     os.makedirs(UNDERTAKER_OUTPUT_FOLDER, exist_ok=True)
     os.makedirs(OTHER_OUTPUT_FOLDER, exist_ok=True)

@@ -5,7 +5,7 @@ import pytesseract
 from openai import OpenAI
 from unidecode import unidecode
 from googleapiclient.http import MediaFileUpload
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageFilter
 
 from .constants import *
 from .utils import *
@@ -66,8 +66,8 @@ openai_client = OpenAI(api_key=GPT_KEY)
 
 
 def get_image_result(image_path):
-    image = change_contrast(image_path, 1.5)
-    text: str = pytesseract.image_to_string(image, lang="fra", config=r"--oem 3 --psm 6")
+    image = process_image_for_ocr(image_path)
+    text: str = pytesseract.image_to_string(image, lang="fra", config='--oem 3 --psm 6')
     prompt1 = (
         "Text:\n"
         + text
@@ -90,8 +90,12 @@ Task Requirements:
         - Extract from the beginning of the text.
     - For "Date of Death": 
         - Format as dd/mm/yyyy.
+    - For "City":
+        - City of the Deceased person. (only City) (domicile, domicilié, domiciliée, habitant, demeurant, etc...)
+    - For "Department Number":
+        - Department Number of City of the Deceased person.
     - For "City of death": 
-        - Extract the city name.
+        - Extract the city name of death.
     - For "Relative Name": 
         - Extract from Déclarant section.
         - Extract the name of the relative.
@@ -102,7 +106,7 @@ Task Requirements:
         - Extract Address from the full address from the declaration section.
     - For "Relative City": 
         - Extract only City of full address from the declaration section.
-    - For "Zip code":
+    - For "Relative Address Zip code":
         - Return the Zip code of Relative Address.
         - It may not be in the Text but return it yourself
     - For "Relation with Deceased person": 
@@ -124,11 +128,13 @@ json
     "About Deceased Person": {
         "Deceased person full name": "",
         "Date of Death": "dd/mm/yyyy",
+        "City": "",
+        "Department Number": "",
         "City of death": "",
-        "Relative Name": "",
+        "Relative Full Name": "",
         "Relative Address": "",
         "Relative City": "",
-        "Zip code":"",
+        "Relative Address Zip code":"",
         "Relation with Deceased person": "",
         "Name of spouse": ""
     }
@@ -151,8 +157,8 @@ json
     a = unidecode(text).lower().split("clarant",1)
     b = unidecode(text).lower().split("claration",1)
     text2 = a[1] if len(a)>1 else b[1] if len(b)>1 else text
-    
-    prompt2 = f'Dead person name : {list(list(result1.values())[1].values())[0]}\n\n Text:\n\n ""'+ text2 + """""
+    print(text2)
+    prompt2 = f'Deceased person name : {list(list(result1.values())[1].values())[0]}\n\n Text:\n\n ""'+ text2 + """""
         
     - For "word 1":
         - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
@@ -160,12 +166,15 @@ json
     - For "word 2":
         - Return 1 if any of the following keywords are found:
             (Funéraire, Assistant funéraire / Assistante funéraire, Chef d'entreprise / Cheffe d'entreprise, Conseiller Funéraire / Conseillère Funéraire, Conservateur du Cimetière / Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres / Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Employé PF / Employée PF, Employé Pompes Funèbres / Employée Pompes Funèbres, Dirigeant de PF / Dirigeante de PF, Dirigeant de Pompes Funèbres / Dirigeante de Pompes Funèbres, Gérant de Société / Gérante de Société, Gérant de la société / Gérante de la société, Gérant / Gérante, Directeur d'agence / Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire / Opératrice Funéraire, etc...)
-        - Search in Déclarant section.
+        - Search only in Déclarant section.
         - Otherwise, return 0.
     - for "word 3":
-        - search for word fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami or amie.
+        - It is to check wheather a relative info of Deceased person exist in the text or not.
+        - Analyze text properly. Don't return 1 for someone from the hospital or the police or an official from the Townhall or there relative.
+        - Hints : search for word fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, epoux, epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami or amie.
         - Return 1 if any of the word exist in the text.
-        - or Return 1 if there any relative name like same last name.
+        - Or Return 1 if there any relative of Deceased person name like same last name.
+        - Search only in Déclarant section.
         - Otherwise, return 0.
         
 return json:
@@ -191,25 +200,52 @@ return json:
 
     list1 = ["Funéraire", "Assistant funéraire", "Assistante funéraire", "Chef d'entreprise", "Cheffe d'entreprise", "Conseiller Funéraire", "Conseillère Funéraire", "Conservateur du Cimetière", "Conservatrice du Cimetière", "Conservateur du cimetière", "Chef d'entreprise de Pompes Funèbres", "Cheffe d'entreprise de Pompes Funèbres", "Services Funéraires", "Employé PF", "Employée PF", "Employé Pompes Funèbres", "Employée Pompes Funèbres", "Dirigeant de PF" , "Dirigeante de PF", "Dirigeant de Pompes Funèbres" , "Dirigeante de Pompes Funèbres", "Gérant de Société" , "Gérante de Société", "Gérant de la société" , "Gérante de la société", "Gérant" , "Gérante", "Directeur d'agence", "Directrice d'agence", "Responsable des services", "Responsable d'agence", "Porteur funéraire", "Pompes Funèbres", "Pompe Funèbre", "Opérateur Funéraire", "Opératrice Funéraire", "chauffeur porteur"]
     
-    list2 = ["fils", "fille", "père", "mère", "frère", "sœur", "cousin", "cousine", "neveu", "nièce", "oncle", "tante", "Epoux", "Epouse", "petits fils", "petite fille", "compagne", "compagnon", "concubin", "concubine", "ex-époux", "ex-épouse", "ex-mari", "ex-femme"]
-    
     if check_for_text(["notoriete"], text2):
         result["word 1"] = 1
     if check_for_text(list1, text2):
         result["word 2"] = 1
-    if check_for_text(list2, text2):
-        result["word 3"] = 1
         
     return result
 
-def change_contrast(image_path, contrast_factor):
+def process_image_for_ocr(image_path, contrast_factor=1.8, blur_radius=1, threshold=90):
+    """
+    Processes an image for OCR by enhancing contrast, applying blur, and converting to B&W.
+
+    Args:
+        image_path (str): Path to the input image.
+        contrast_factor (float): Factor to enhance the contrast. >1 increases contrast, <1 decreases it.
+        blur_radius (float): Radius for the Gaussian blur. 0 means no blur.
+        threshold (int): Threshold for binarization (0-255). Default is 128.
+
+    Returns:
+        PIL.Image.Image: The processed image.
+    """
+    # Open the image
     pil_image = Image.open(image_path)
 
-    # Enhance the contrast of the image for better OCR
-    enhancer = ImageEnhance.Contrast(pil_image)
-    enhanced_image = enhancer.enhance(contrast_factor)
+    # Enhance the contrast (optional)
+    if contrast_factor != 1.0:
+        enhancer = ImageEnhance.Contrast(pil_image)
+        pil_image = enhancer.enhance(contrast_factor)
 
-    return enhanced_image
+
+    # Convert to RGB if not already in that mode
+    if pil_image.mode != 'RGB':
+        pil_image = pil_image.convert('RGB')
+
+    # Isolate black pixels: Create a new image with black pixels preserved
+    pixels = pil_image.load()
+    for y in range(pil_image.height):
+        for x in range(pil_image.width):
+            r, g, b = pixels[x, y]
+            # Keep black pixels; turn others to white
+            if not (r < threshold and g < threshold and b < threshold):
+                pixels[x, y] = (255, 255, 255)
+
+    # Apply Gaussian blur to the image
+    pil_image = pil_image.filter(ImageFilter.GaussianBlur(blur_radius))
+
+    return pil_image
 
 def check_for_text(words, sentence):
     sentence = re.sub(r'\s+', '', unidecode(sentence)).lower()

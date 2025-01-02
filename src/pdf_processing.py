@@ -66,6 +66,7 @@ def separate_pdfs(sheets_service, drive_service):
     for pdf in pdf_files:
         notary_images = []
         undertake_images = []
+        heir_images = []
         na_images = []
         
         pdf_name = os.path.basename(pdf)
@@ -82,47 +83,73 @@ def separate_pdfs(sheets_service, drive_service):
         images = sorted(images, key=extract_number)
 
         print("\nSTART :\n")
-        progress_bar = tqdm(images, ncols=60, bar_format="{percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt}")
-        for image in progress_bar:
+        count = 1
+        total = len(images)
+        for image in images:
+            print("------------------------------------")
+            print(f"{image} : {count}/{total}")
+            count += 1
+            
             image_path = f"{IMAGE_FOLDER}/{image}"
             gpt_result:dict = get_image_result(image_path)  # Pass services
             if gpt_result:
                 result = list(gpt_result.values())
                 details = list(result[4].values())
-                name, dod, city, relative, relative_address, relative_city, zip_code, relation, partner = details
-                
+                name, dod, city, dep, death_city, relative, relative_address, relative_city, zip_code, relation, partner = details
+                other, template = False, 2
                 if result[3]:
                     time_checked = is_before(dod, 2017)
+                    print(f"Before 2017 (Paris) : {time_checked}")
                 else:
                     time_checked = is_before(dod, 2019)
+                    print(f"Before 2019 : {time_checked}")
                     
                 if result[0]:
+                    print("Notary")
                     notary_images.append(image_path)
                 elif result[1]:
                     if time_checked:
-                        na_images.append(image_path)
+                        template = 1
+                        other = True
                     else:
+                        print("Undertaker")
                         undertake_images.append(image_path)
                 elif result[2]:
                     if time_checked:
-                        na_images.append(image_path)
+                        other = True
                     else:
+                        print("Heir")
+                        heir_images.append(image_path)
                         file_link = upload_image_and_append_sheet(
                             name, image_path, drive_service, sheets_service, existing_images
                         )
-                        new_row = (name, dod, city, relative, relative_address, relative_city , zip_code, relation, partner, file_link, "Not contacted","","","A vérifier")
+                        new_row = (name, dod, death_city, relative, relative_address, relative_city , zip_code, relation, partner, file_link, "Not contacted","","","A vérifier")
                         request = sheets_service.spreadsheets().values().append(
                                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
                                 range="Héritier Annuaire!A:N",
-                                valueInputOption="RAW",
+                                valueInputOption="USER_ENTERED",
                                 body={"values": [new_row]},
                             )
                         execute_with_retry(request)
                 else:
+                    other = True
+                
+                if other:
+                    print("Other")
                     na_images.append(image_path)
-
+                    file_link = upload_image_and_append_sheet(name, image_path, drive_service, sheets_service, existing_images)
+                    new_row = (city, dep, None, None, name, dod, None, None, None, None, None, None, file_link, template)
+                    request = sheets_service.spreadsheets().values().append(
+                            spreadsheetId=ANNUAIRE_TOWNHALL_SHEET_ID,
+                            range="Scheduled email!A:N",
+                            valueInputOption="USER_ENTERED",
+                            body={"values": [new_row]},
+                        )
+                    execute_with_retry(request)
+                print("------------------------------------")
         combine_images_to_pdf(notary_images,f"{NOTARY_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Notary.pdf')}")
         combine_images_to_pdf(undertake_images,f"{UNDERTAKER_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Undertaker.pdf')}")
+        combine_images_to_pdf(heir_images,f"{HEIR_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Heir.pdf')}")
         combine_images_to_pdf(na_images,f"{OTHER_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Other.pdf')}")
         shutil.move(pdf_path, f"{COMPLETED_FOLDER}/{pdf}")
         
