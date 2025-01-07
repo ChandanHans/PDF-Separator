@@ -138,7 +138,7 @@ def separate_pdfs(sheets_service, drive_service):
                     print("Other")
                     na_images.append(image_path)
                     file_link = upload_image_and_append_sheet(name, image_path, drive_service, sheets_service, existing_images)
-                    new_row = (city, dep, None, None, name, dod, None, None, None, None, None, None, file_link, template)
+                    new_row = (city, dep, None, None, name, dod, "louis.fleury@klero.fr", None, None, None, None, None, file_link, template)
                     request = sheets_service.spreadsheets().values().append(
                             spreadsheetId=ANNUAIRE_TOWNHALL_SHEET_ID,
                             range="Scheduled email!A:N",
