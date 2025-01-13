@@ -94,15 +94,18 @@ def separate_pdfs(sheets_service, drive_service):
             gpt_result:dict = get_image_result(image_path)  # Pass services
             if gpt_result:
                 result = list(gpt_result.values())
-                details = list(result[4].values())
+                details = list(result[3].values())
                 name, dod, city, dep, death_city, relative, relative_address, relative_city, zip_code, relation, partner = details
                 other, template = False, 2
-                if result[3]:
-                    time_checked = is_before(dod, 2017)
-                    print(f"Before 2017 (Paris) : {time_checked}")
-                else:
-                    time_checked = is_before(dod, 2019)
-                    print(f"Before 2019 : {time_checked}")
+                try:
+                    if int(dep) in [6, 75, 78, 92]:
+                        time_checked = is_before(dod, 2018)
+                        print(f"Before 2018 (06, 75, 78, 92) : {time_checked}")
+                    else:
+                        time_checked = is_before(dod, 2020)
+                        print(f"Before 2020 : {time_checked}")
+                except:
+                    time_checked = is_before(dod, 2020)
                     
                 if result[0]:
                     print("Notary")

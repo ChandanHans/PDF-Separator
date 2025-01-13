@@ -79,13 +79,8 @@ Task Requirements:
 
 2. Case Sensitivity  
     - Don't change any case because I Identify fname and lname with case.
-
-3. Logic for Key Fields
-    - for "Address is under Paris":
-        - Return 1 if the Deceased person person is under Paris (Department 75).
-        - Otherwise, return 0.
-            
-4. Extract Information About the Deceased Person
+         
+3. Extract Information About the Deceased Person
     - For "Deceased person full name": 
         - Extract from the beginning of the text.
     - For "Date of Death": 
@@ -124,7 +119,6 @@ Return the results as a JSON object, strictly adhering to this structure:
 
 json
 {
-    "Address is under Paris" : 0/1,
     "About Deceased Person": {
         "Deceased person full name": "",
         "Date of Death": "dd/mm/yyyy",
@@ -157,8 +151,7 @@ json
     a = unidecode(text).lower().split("clarant",1)
     b = unidecode(text).lower().split("claration",1)
     text2 = a[1] if len(a)>1 else b[1] if len(b)>1 else text
-    print(text2)
-    prompt2 = f'Deceased person name : {list(list(result1.values())[1].values())[0]}\n\n Text:\n\n ""'+ text2 + """""
+    prompt2 = f'Deceased person name : {list(list(result1.values())[0].values())[0]}\n\n Text:\n\n ""'+ text2 + """""
         
     - For "word 1":
         - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
