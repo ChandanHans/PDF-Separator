@@ -200,6 +200,43 @@ return json:
         
     return result
 
+def get_notary_info(image_path):
+    text = pytesseract.image_to_string(image_path, lang="fra")
+    prompt = (
+        "Text:\n"
+        + text
+        + """
+
+
+1. Filter unnecessary characters like (*, #, ~, etc.)
+2. case sensitive so Don't change any case because I Identify fname and lname with case.
+3. If you think this is not the full text from a death certificate then ""
+4. Ensure the following:
+    - If any of the fields are not present, leave them as an empty string ("").
+    - Return the result in the exact JSON format.
+
+Please format the output as a JSON object, following this structure exactly:
+{
+    "Dead person full name": "" (You can get it right at the beginning),
+    "Acte de notorieti": "" (date only) (format dd/mm/yyyy),
+    "Certificate notary name": "" (Name of the notary mentioned after "Acte de notorieti") (omit the title "Maitre" and only include the name).
+}
+""")
+    
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        response_format={"type": "json_object"},
+        max_tokens=300,
+    )
+    result = eval(response.choices[0].message.content)
+    return result
+
 def process_image_for_ocr(image_path, contrast_factor=1.8, blur_radius=1, threshold=90):
     """
     Processes an image for OCR by enhancing contrast, applying blur, and converting to B&W.

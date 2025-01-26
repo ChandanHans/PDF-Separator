@@ -79,3 +79,13 @@ def is_before(date_text, year):
         return input_date < threshold_date
     except ValueError:
         return False
+    
+def get_fname_lname(full_name: str):
+    words = full_name.strip().split()
+    lname = (
+        " ".join([word for word in words if word.isupper() or word.lower() == "de"])
+    ).upper()
+    fname = (
+        " ".join([word for word in words if not word.isupper() and word != "de"])
+    )
+    return fname, lname
