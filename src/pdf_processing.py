@@ -4,7 +4,7 @@ import fitz
 from tqdm import tqdm
 from PIL import Image
 
-from .drive_upload import get_table_data
+from .drive_upload import get_table_data, upload_to_drive
 
 from .constants import *
 from .image_processing import *
@@ -28,6 +28,8 @@ def combine_images_to_pdf(image_paths, output_pdf_path):
 
     # Save images as a PDF
     images[0].save(output_pdf_path, save_all=True, append_images=images[1:])
+
+    return output_pdf_path
 
 
 def delete_images(directory_path):
@@ -62,7 +64,6 @@ def pdf_to_images(pdf_path, output_folder, resolution):
 
 
 def separate_pdfs(sheets_service, drive_service):
-
     existing_images = get_table_data(sheets_service, IMAGE_SHEET_ID, "Sheet1!A:B")
     pdf_files = [
         file for file in os.listdir(INPUT_FOLDER) if file.lower().endswith(".pdf")
@@ -132,7 +133,9 @@ def separate_pdfs(sheets_service, drive_service):
                     notary_images.append(image_path)
                     notary_info: dict = get_notary_info(image_path)
                     _, don, notary_name = list(notary_info.values())
-                    notary_first_name, notary_last_name = get_fname_lname(unidecode(notary_name))
+                    notary_first_name, notary_last_name = get_fname_lname(
+                        unidecode(notary_name)
+                    )
                     new_row = (
                         notary_first_name,
                         notary_last_name,
@@ -149,15 +152,15 @@ def separate_pdfs(sheets_service, drive_service):
                         image_link,
                     )
                     request = (
-                            sheets_service.spreadsheets()
-                            .values()
-                            .append(
-                                spreadsheetId=ANNUAIRE_NOTAIRES_SHEET_ID,
-                                range="Scheduled email!A:M",
-                                valueInputOption="USER_ENTERED",
-                                body={"values": [new_row]},
-                            )
+                        sheets_service.spreadsheets()
+                        .values()
+                        .append(
+                            spreadsheetId=ANNUAIRE_NOTAIRES_SHEET_ID,
+                            range="Scheduled email!A:M",
+                            valueInputOption="USER_ENTERED",
+                            body={"values": [new_row]},
                         )
+                    )
                     execute_with_retry(request)
                 elif result[1]:
                     if time_checked:
@@ -239,10 +242,6 @@ def separate_pdfs(sheets_service, drive_service):
             f"{NOTARY_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Notary.pdf')}",
         )
         combine_images_to_pdf(
-            undertake_images,
-            f"{UNDERTAKER_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Undertaker.pdf')}",
-        )
-        combine_images_to_pdf(
             heir_images,
             f"{HEIR_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Heir.pdf')}",
         )
@@ -250,6 +249,13 @@ def separate_pdfs(sheets_service, drive_service):
             na_images,
             f"{OTHER_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Other.pdf')}",
         )
+        new_file_path = combine_images_to_pdf(
+            undertake_images,
+            f"{UNDERTAKER_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Undertaker.pdf')}",
+        )
+        if new_file_path:
+            upload_to_drive(drive_service,new_file_path,UNDERTAKER_FOLDER_ID)
+            
         shutil.move(pdf_path, f"{COMPLETED_FOLDER}/{pdf}")
 
         print(
