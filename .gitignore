@@ -13,3 +13,4 @@ secret_token.pickle
 __pycache__
 k.py
 token.*
+/Hospital

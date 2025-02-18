@@ -53,4 +53,5 @@ if __name__ == "__main__":
     os.makedirs(COMPLETED_FOLDER, exist_ok=True)
     os.makedirs(LETTER_FOLDER, exist_ok=True)
     os.makedirs(TEMP_LETTER_FOLDER, exist_ok=True)
+    os.makedirs(HOSPITAL_OUTPUT_FOLDER, exist_ok=True)
     main()

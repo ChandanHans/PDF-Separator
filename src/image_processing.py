@@ -17,7 +17,7 @@ def clean_name_for_comparison(name: str):
 
 
 def upload_image_and_append_sheet(
-    name, image_path, drive_service, sheets_service, existing_images=None
+    name, dob, dod, image_path, drive_service, sheets_service, existing_images=None
 ):
     """
     Upload the image to Google Drive and append its name and link to a Google Sheet.
@@ -32,6 +32,8 @@ def upload_image_and_append_sheet(
         existing_images = []  # Ensure there's an empty list if no data is passed
     for image in existing_images:
         if cleaned_name in clean_name_for_comparison(image[0]):
+            if len(image) == 4 and (dob != image[-2] or dod != image[-1]):
+                continue
             return image[1]
 
     # Upload the image to the folder
@@ -46,7 +48,7 @@ def upload_image_and_append_sheet(
     file_link = uploaded_file.get("webViewLink")
 
     # Append the image name and link to the Google Sheet
-    row_data = [file_name, file_link]
+    row_data = [file_name, file_link, dob, dod]
     request = (
         sheets_service.spreadsheets()
         .values()
@@ -67,7 +69,7 @@ openai_client = OpenAI(api_key=GPT_KEY)
 
 def get_image_result(image_path):
     image = process_image_for_ocr(image_path)
-    text: str = pytesseract.image_to_string(image, lang="fra", config='--oem 3 --psm 6')
+    text: str = pytesseract.image_to_string(image, lang="fra", config="--oem 3 --psm 6")
     prompt1 = (
         "Text:\n"
         + text
@@ -83,6 +85,8 @@ Task Requirements:
 3. Extract Information About the Deceased Person
     - For "Deceased person full name": 
         - Extract from the beginning of the text.
+    - For "Date of Birth": 
+        - Format as dd/mm/yyyy.
     - For "Date of Death": 
         - Format as dd/mm/yyyy.
     - For "City":
@@ -91,22 +95,23 @@ Task Requirements:
         - Department Number of City of the Deceased person.
     - For "City of death": 
         - Extract the city name of death.
-    - For "Relative Name": 
+    - For "Declarant Name": 
         - Extract from Déclarant section.
         - Extract the name of the relative.
         - not the relationship.
         - if there no relative name in Déclarant section then "".
         - hints : search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in Déclarant section.
-    - For "Relative Address": 
+    - For "Declarant Address": 
         - Extract Address from the full address from the declaration section.
-    - For "Relative City": 
+    - For "Declarant City": 
         - Extract only City of full address from the declaration section.
-    - For "Relative Address Zip code":
-        - Return the Zip code of Relative Address.
+    - For "Declarant Address Zip code":
+        - Return the Zip code of Declarant Address.
         - It may not be in the Text but return it yourself
     - For "Relation with Deceased person": 
+        - return "" if the declarant is not a relative of deceased.
         - Extract from Déclarant section
-        - Extract the relation of the Relative.
+        - Extract the relation of the Declarant.
         - e.g., fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...
     - For "Name of spouse": 
         - Search before Déclarant section.
@@ -121,14 +126,15 @@ json
 {
     "About Deceased Person": {
         "Deceased person full name": "",
+        "Date of Birth": "dd/mm/yyyy",
         "Date of Death": "dd/mm/yyyy",
         "City": "",
         "Department Number": "",
         "City of death": "",
-        "Relative Full Name": "",
-        "Relative Address": "",
-        "Relative City": "",
-        "Relative Address Zip code":"",
+        "Declarant Full Name": "",
+        "Declarant Address": "",
+        "Declarant City": "",
+        "Declarant Address Zip code":"",
         "Relation with Deceased person": "",
         "Name of spouse": ""
     }
@@ -148,20 +154,34 @@ json
     )
     result1 = eval(response1.choices[0].message.content)
 
-    a = unidecode(text).lower().split("clarant",1)
-    b = unidecode(text).lower().split("claration",1)
-    text2 = a[1] if len(a)>1 else b[1] if len(b)>1 else text
-    prompt2 = f'Deceased person name : {list(list(result1.values())[0].values())[0]}\n\n Text:\n\n ""'+ text2 + """""
+    a = unidecode(text).lower().split("clarant", 1)
+    b = unidecode(text).lower().split("claration", 1)
+    text2 = text
+    if len(b) > 1:
+        text2 = b[-1]
+    elif len(a) > 1:
+        text2 = a[-1]
+    print(text2)
+    prompt2 = (
+        f'Deceased person name : {list(list(result1.values())[0].values())[0]}\n\n Text:\n\n ""'
+        + text2
+        + """""
         
     - For "word 1":
         - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
         - Note: If there is "mentions marginales" and contains the word Neant then return 0.
     - For "word 2":
         - Return 1 if any of the following keywords are found:
-            (Funéraire, Assistant funéraire / Assistante funéraire, Chef d'entreprise / Cheffe d'entreprise, Conseiller Funéraire / Conseillère Funéraire, Conservateur du Cimetière / Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres / Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Employé PF / Employée PF, Employé Pompes Funèbres / Employée Pompes Funèbres, Dirigeant de PF / Dirigeante de PF, Dirigeant de Pompes Funèbres / Dirigeante de Pompes Funèbres, Gérant de Société / Gérante de Société, Gérant de la société / Gérante de la société, Gérant / Gérante, Directeur d'agence / Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire / Opératrice Funéraire, etc...)
+            (Funéraire, Assistant funéraire , Assistante funéraire, Chef d'entreprise , Cheffe d'entreprise, Conseiller Funéraire , Conseillère Funéraire, Conservateur du Cimetière , Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres , Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Employé PF , Employée PF, Employé Pompes Funèbres , Employée Pompes Funèbres, Dirigeant de PF , Dirigeante de PF, Dirigeant de Pompes Funèbres , Dirigeante de Pompes Funèbres, Gérant de Société , Gérante de Société, Gérant de la société , Gérante de la société, Gérant , Gérante, Directeur d'agence , Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire , Opératrice Funéraire, démarcheur etc...)
         - Search only in Déclarant section.
         - Otherwise, return 0.
-    - for "word 3":
+    -for "word 3":
+        - return 1 if the declarant is likely from a Hospital.
+        - Return 1 if any of the following keywords are found:
+            (Infirmier, Infirmière, Infirmiers, Infirmières, attache d'administration, Directeur d'hôpital, Directrice d'hôpital, Directeurs d'hôpital, Directrices d'hôpital, Directeur d'hôpital délégué, Directrice d'hôpital déléguée, Directeurs d'hôpital délégués, Directrices d'hôpital déléguées, Agent hospitalier, Agente hospitalière, Agents hospitaliers, Agentes hospitalières, Adjointe hospitalière, Adjoint hospitalier, Agent médico-administratif, Agente médico-administrative, Agents médico-administratifs, Agentes médico-administratives, Aide médico-psychologique, Aides médico-psychologiques, Cadre hospitalier, Cadre hospitalière, Cadres hospitaliers, Cadres hospitalières, Cadre hospitalier responsable, Cadre hospitalière responsable, Cadres hospitaliers responsables, Cadres hospitalières responsables, Praticien hospitalier, Praticienne hospitalière, Praticiens hospitaliers, Praticiennes hospitalièresetc, responsable du secteur Recettes, EPHAD ...)
+        - Search only in Déclarant section.
+        - Otherwise, return 0.
+    - for "word 4":
         - It is to check wheather a relative info of Deceased person exist in the text or not.
         - Analyze text properly. Don't return 1 for someone from the hospital or the police or an official from the Townhall or there relative.
         - Hints : search for word fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, epoux, epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami or amie.
@@ -175,8 +195,11 @@ return json:
     "word 1": 0/1,
     "word 2": 0/1,
     "word 3": 0/1,
+    "word 4": 0/1,
+    "why?":,
 }
 """
+    )
     response2 = openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -191,14 +214,68 @@ return json:
 
     result = result2 | result1
 
-    list1 = ["Funéraire", "Assistant funéraire", "Assistante funéraire", "Chef d'entreprise", "Cheffe d'entreprise", "Conseiller Funéraire", "Conseillère Funéraire", "Conservateur du Cimetière", "Conservatrice du Cimetière", "Conservateur du cimetière", "Chef d'entreprise de Pompes Funèbres", "Cheffe d'entreprise de Pompes Funèbres", "Services Funéraires", "Employé PF", "Employée PF", "Employé Pompes Funèbres", "Employée Pompes Funèbres", "Dirigeant de PF" , "Dirigeante de PF", "Dirigeant de Pompes Funèbres" , "Dirigeante de Pompes Funèbres", "Gérant de Société" , "Gérante de Société", "Gérant de la société" , "Gérante de la société", "Gérant" , "Gérante", "Directeur d'agence", "Directrice d'agence", "Responsable des services", "Responsable d'agence", "Porteur funéraire", "Pompes Funèbres", "Pompe Funèbre", "Opérateur Funéraire", "Opératrice Funéraire", "chauffeur porteur"]
-    
+    list1 = [
+        "Funéraire",
+        "Assistant funéraire",
+        "Assistante funéraire",
+        "Chef d'entreprise",
+        "Cheffe d'entreprise",
+        "Conseiller Funéraire",
+        "Conseillère Funéraire",
+        "Conservateur du Cimetière",
+        "Conservatrice du Cimetière",
+        "Conservateur du cimetière",
+        "Chef d'entreprise de Pompes Funèbres",
+        "Cheffe d'entreprise de Pompes Funèbres",
+        "Services Funéraires",
+        "Employé PF",
+        "Employée PF",
+        "Employé Pompes Funèbres",
+        "Employée Pompes Funèbres",
+        "Dirigeant de PF",
+        "Dirigeante de PF",
+        "Dirigeant de Pompes Funèbres",
+        "Dirigeante de Pompes Funèbres",
+        "Gérant de Société",
+        "Gérante de Société",
+        "Gérant de la société",
+        "Gérante de la société",
+        "Gérant",
+        "Gérante",
+        "Directeur d'agence",
+        "Directrice d'agence",
+        "Responsable des services",
+        "Responsable d'agence",
+        "Porteur funéraire",
+        "Pompes Funèbres",
+        "Pompe Funèbre",
+        "Opérateur Funéraire",
+        "Opératrice Funéraire",
+        "chauffeur porteur",
+        "Directrice commerciale",
+        "démarcheur"
+    ]
+    list2 = [
+        "Infirmier",
+        "administratif",
+        "administrative",
+        "hospital",
+        "psychologique",
+        "responsable du secteur recette",
+        "administration",
+        "admissionnisteS"
+        "EPHAD",
+    ]
+
     if check_for_text(["notoriete"], text2):
         result["word 1"] = 1
     if check_for_text(list1, text2):
         result["word 2"] = 1
-        
+    if check_for_text(list2, text2):
+        result["word 3"] = 1
+
     return result
+
 
 def get_notary_info(image_path):
     text = pytesseract.image_to_string(image_path, lang="fra")
@@ -221,8 +298,9 @@ Please format the output as a JSON object, following this structure exactly:
     "Acte de notorieti": "" (date only) (format dd/mm/yyyy),
     "Certificate notary name": "" (Name of the notary mentioned after "Acte de notorieti") (omit the title "Maitre" and only include the name).
 }
-""")
-    
+"""
+    )
+
     response = openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -236,6 +314,7 @@ Please format the output as a JSON object, following this structure exactly:
     )
     result = eval(response.choices[0].message.content)
     return result
+
 
 def process_image_for_ocr(image_path, contrast_factor=1.8, blur_radius=1, threshold=90):
     """
@@ -258,10 +337,9 @@ def process_image_for_ocr(image_path, contrast_factor=1.8, blur_radius=1, thresh
         enhancer = ImageEnhance.Contrast(pil_image)
         pil_image = enhancer.enhance(contrast_factor)
 
-
     # Convert to RGB if not already in that mode
-    if pil_image.mode != 'RGB':
-        pil_image = pil_image.convert('RGB')
+    if pil_image.mode != "RGB":
+        pil_image = pil_image.convert("RGB")
 
     # Isolate black pixels: Create a new image with black pixels preserved
     pixels = pil_image.load()
@@ -277,14 +355,15 @@ def process_image_for_ocr(image_path, contrast_factor=1.8, blur_radius=1, thresh
 
     return pil_image
 
+
 def check_for_text(words, sentence):
-    sentence = re.sub(r'\s+', '', unidecode(sentence)).lower()
+    sentence = re.sub(r"\s+", "", unidecode(sentence)).lower()
     for word in words:
-        word = re.sub(r'\s+', '', unidecode(word)).lower()
+        word = re.sub(r"\s+", "", unidecode(word)).lower()
         if word in sentence:
             return True
     return False
-    
+
 
 def check_for_tesseract():
     os_name = platform.system()

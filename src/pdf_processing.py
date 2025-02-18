@@ -18,7 +18,7 @@ def combine_images_to_pdf(image_paths, output_pdf_path):
     if len(image_paths) == 1:
         img = Image.open(image_paths[0])
         img.convert("RGB").save(output_pdf_path)
-        return
+        return output_pdf_path
 
     # Open the images
     images = [Image.open(image) for image in image_paths]
@@ -64,7 +64,7 @@ def pdf_to_images(pdf_path, output_folder, resolution):
 
 
 def separate_pdfs(sheets_service, drive_service):
-    existing_images = get_table_data(sheets_service, IMAGE_SHEET_ID, "Sheet1!A:B")
+    existing_images = get_table_data(sheets_service, IMAGE_SHEET_ID, "Sheet1!A:D")
     pdf_files = [
         file for file in os.listdir(INPUT_FOLDER) if file.lower().endswith(".pdf")
     ]
@@ -72,6 +72,7 @@ def separate_pdfs(sheets_service, drive_service):
     for pdf in pdf_files:
         notary_images = []
         undertake_images = []
+        Hospital_images = []
         heir_images = []
         na_images = []
 
@@ -100,22 +101,23 @@ def separate_pdfs(sheets_service, drive_service):
             gpt_result: dict = get_image_result(image_path)  # Pass services
             if gpt_result:
                 result = list(gpt_result.values())
-                details = list(result[3].values())
+                details = list(result[-1].values())
                 (
                     name,
+                    dob,
                     dod,
                     city,
                     dep,
                     death_city,
-                    relative,
-                    relative_address,
-                    relative_city,
+                    declarant,
+                    declarant_address,
+                    declarant_city,
                     zip_code,
                     relation,
                     partner,
                 ) = details
                 image_link = upload_image_and_append_sheet(
-                    name, image_path, drive_service, sheets_service, existing_images
+                    name, dob, dod, image_path, drive_service, sheets_service, existing_images
                 )
                 other, template = False, 2
                 try:
@@ -170,6 +172,36 @@ def separate_pdfs(sheets_service, drive_service):
                         print("Undertaker")
                         undertake_images.append(image_path)
                 elif result[2]:
+                    print("Hospital")
+                    Hospital_images.append(image_path)
+                    new_row = (
+                        death_city,
+                        dep,
+                        None,
+                        None,
+                        name,
+                        dod,
+                        declarant,
+                        "louis.fleury@klero.fr",
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        image_link
+                    )
+                    request = (
+                        sheets_service.spreadsheets()
+                        .values()
+                        .append(
+                            spreadsheetId=ANNUAIRE_HOSPITAL_SHEET_ID,
+                            range="Scheduled email!A:N",
+                            valueInputOption="USER_ENTERED",
+                            body={"values": [new_row]},
+                        )
+                    )
+                    execute_with_retry(request)
+                elif result[3]:
                     if time_checked:
                         other = True
                     else:
@@ -179,9 +211,9 @@ def separate_pdfs(sheets_service, drive_service):
                             name,
                             dod,
                             death_city,
-                            relative,
-                            relative_address,
-                            relative_city,
+                            declarant,
+                            declarant_address,
+                            declarant_city,
                             zip_code,
                             relation,
                             partner,
@@ -244,6 +276,10 @@ def separate_pdfs(sheets_service, drive_service):
         combine_images_to_pdf(
             heir_images,
             f"{HEIR_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Heir.pdf')}",
+        )
+        combine_images_to_pdf(
+            Hospital_images,
+            f"{HOSPITAL_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Hospital.pdf')}",
         )
         combine_images_to_pdf(
             na_images,
