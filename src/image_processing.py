@@ -1,7 +1,6 @@
 import os
 import platform
 import subprocess
-import numpy as np
 import pytesseract
 from openai import OpenAI
 from unidecode import unidecode
