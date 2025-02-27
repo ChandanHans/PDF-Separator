@@ -100,8 +100,7 @@ def separate_pdfs(sheets_service, drive_service):
             image_path = f"{IMAGE_FOLDER}/{image}"
             gpt_result: dict = get_image_result(image_path)  # Pass services
             if gpt_result:
-                result = list(gpt_result.values())
-                details = list(result[-1].values())
+                details = list(dict(gpt_result["about_deceased_person"]).values())
                 (
                     name,
                     dob,
@@ -130,7 +129,7 @@ def separate_pdfs(sheets_service, drive_service):
                 except:
                     time_checked = is_before(dod, 2020)
 
-                if result[0]:
+                if int(gpt_result["notary"]):
                     print("Notary")
                     notary_images.append(image_path)
                     notary_info: dict = get_notary_info(image_path)
@@ -164,19 +163,19 @@ def separate_pdfs(sheets_service, drive_service):
                         )
                     )
                     execute_with_retry(request)
-                elif result[1]:
+                elif int(gpt_result["undertaker"]):
                     if time_checked:
                         template = 1
                         other = True
                     else:
                         print("Undertaker")
                         undertake_images.append(image_path)
-                elif result[2]:
+                elif int(gpt_result["hospital"]):
                     print("Hospital")
                     Hospital_images.append(image_path)
                     new_row = (
                         death_city,
-                        dep,
+                        declarant_address,
                         None,
                         None,
                         name,
@@ -201,7 +200,7 @@ def separate_pdfs(sheets_service, drive_service):
                         )
                     )
                     execute_with_retry(request)
-                elif result[3]:
+                elif int(gpt_result["heir"]):
                     if time_checked:
                         other = True
                     else:

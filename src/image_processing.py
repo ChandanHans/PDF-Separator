@@ -1,6 +1,7 @@
 import os
 import platform
 import subprocess
+import numpy as np
 import pytesseract
 from openai import OpenAI
 from unidecode import unidecode
@@ -124,7 +125,7 @@ Return the results as a JSON object, strictly adhering to this structure:
 
 json
 {
-    "About Deceased Person": {
+    "about_deceased_person": {
         "Deceased person full name": "",
         "Date of Birth": "dd/mm/yyyy",
         "Date of Death": "dd/mm/yyyy",
@@ -161,27 +162,26 @@ json
         text2 = b[-1]
     elif len(a) > 1:
         text2 = a[-1]
-    print(text2)
     prompt2 = (
         f'Deceased person name : {list(list(result1.values())[0].values())[0]}\n\n Text:\n\n ""'
         + text2
         + """""
         
-    - For "word 1":
+    - For "notary":
         - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
         - Note: If there is "mentions marginales" and contains the word Neant then return 0.
-    - For "word 2":
+    - For "undertaker":
         - Return 1 if any of the following keywords are found:
             (Funéraire, Assistant funéraire , Assistante funéraire, Chef d'entreprise , Cheffe d'entreprise, Conseiller Funéraire , Conseillère Funéraire, Conservateur du Cimetière , Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres , Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Employé PF , Employée PF, Employé Pompes Funèbres , Employée Pompes Funèbres, Dirigeant de PF , Dirigeante de PF, Dirigeant de Pompes Funèbres , Dirigeante de Pompes Funèbres, Gérant de Société , Gérante de Société, Gérant de la société , Gérante de la société, Gérant , Gérante, Directeur d'agence , Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire , Opératrice Funéraire, démarcheur etc...)
         - Search only in Déclarant section.
         - Otherwise, return 0.
-    -for "word 3":
+    -for "hospital":
         - return 1 if the declarant is likely from a Hospital.
         - Return 1 if any of the following keywords are found:
             (Infirmier, Infirmière, Infirmiers, Infirmières, attache d'administration, Directeur d'hôpital, Directrice d'hôpital, Directeurs d'hôpital, Directrices d'hôpital, Directeur d'hôpital délégué, Directrice d'hôpital déléguée, Directeurs d'hôpital délégués, Directrices d'hôpital déléguées, Agent hospitalier, Agente hospitalière, Agents hospitaliers, Agentes hospitalières, Adjointe hospitalière, Adjoint hospitalier, Agent médico-administratif, Agente médico-administrative, Agents médico-administratifs, Agentes médico-administratives, Aide médico-psychologique, Aides médico-psychologiques, Cadre hospitalier, Cadre hospitalière, Cadres hospitaliers, Cadres hospitalières, Cadre hospitalier responsable, Cadre hospitalière responsable, Cadres hospitaliers responsables, Cadres hospitalières responsables, Praticien hospitalier, Praticienne hospitalière, Praticiens hospitaliers, Praticiennes hospitalièresetc, responsable du secteur Recettes, EPHAD ...)
         - Search only in Déclarant section.
         - Otherwise, return 0.
-    - for "word 4":
+    - for "heir":
         - It is to check wheather a relative info of Deceased person exist in the text or not.
         - Analyze text properly. Don't return 1 for someone from the hospital or the police or an official from the Townhall or there relative.
         - Hints : search for word fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, epoux, epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami or amie.
@@ -192,11 +192,11 @@ json
         
 return json:
 {
-    "word 1": 0/1,
-    "word 2": 0/1,
-    "word 3": 0/1,
-    "word 4": 0/1,
-    "why?":,
+    "notary": 0/1,
+    "undertaker": 0/1,
+    "hospital": 0/1,
+    "heir": 0/1,
+    "why?": name and relation if heir,
 }
 """
     )
@@ -256,23 +256,34 @@ return json:
         "démarcheur"
     ]
     list2 = [
+        "Vaguemestre",
+        "gestionnaire admissions",
         "Infirmier",
-        "administratif",
-        "administrative",
         "hospital",
         "psychologique",
+        "assistante de direction",
+        "assistant de direction",
         "responsable du secteur recette",
-        "administration",
-        "admissionnisteS"
+        "administrati",
+        "admissionniste",
         "EPHAD",
     ]
-
+    if check_for_text(["police"], text2):
+        result["notary"] = 0
+        result["undertaker"] = 0
+        result["hospital"] = 0
+        result["heir"] = 0
+        return result
+    
     if check_for_text(["notoriete"], text2):
-        result["word 1"] = 1
+        result["notary"] = 1
+    else:
+        result["notary"] = 0
+        
     if check_for_text(list1, text2):
-        result["word 2"] = 1
+        result["undertaker"] = 1
     if check_for_text(list2, text2):
-        result["word 3"] = 1
+        result["hospital"] = 1
 
     return result
 
@@ -340,7 +351,7 @@ def process_image_for_ocr(image_path, contrast_factor=1.8, blur_radius=1, thresh
     # Convert to RGB if not already in that mode
     if pil_image.mode != "RGB":
         pil_image = pil_image.convert("RGB")
-
+    
     # Isolate black pixels: Create a new image with black pixels preserved
     pixels = pil_image.load()
     for y in range(pil_image.height):
