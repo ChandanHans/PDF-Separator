@@ -1,3 +1,4 @@
+import base64
 import os
 import platform
 import subprocess
@@ -55,7 +56,7 @@ def upload_image_and_append_sheet(
         .append(
             spreadsheetId=IMAGE_SHEET_ID,
             range="Sheet1!A:B",
-            valueInputOption="RAW",
+            valueInputOption="USER_ENTERED",
             body={"values": [row_data]},
         )
     )
@@ -64,16 +65,10 @@ def upload_image_and_append_sheet(
     return file_link
 
 
-openai_client = OpenAI(api_key=GPT_KEY)
-
-
-def get_image_result(image_path):
+def get_image_result(image_path, openai_client: OpenAI):
     image = process_image_for_ocr(image_path)
     text: str = pytesseract.image_to_string(image, lang="fra", config="--oem 3 --psm 6")
-    prompt1 = (
-        "Text:\n"
-        + text
-        + """
+    prompt1 = """
 Task Requirements:
 
 1. Filter Unnecessary Characters
@@ -140,19 +135,24 @@ json
     }
 }
     """
-    )
 
-    response1 = openai_client.chat.completions.create(
+    response1 = openai_client.responses.create(
         model="gpt-4o-mini",
-        messages=[
+        input=[
+            {"role": "system", "content": [{"type": "input_text", "text": prompt1}]},
             {
                 "role": "user",
-                "content": prompt1,
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": text,
+                    }
+                ],
             },
         ],
-        response_format={"type": "json_object"},
+        text={"format": {"type": "json_object"}},
     )
-    result1 = eval(response1.choices[0].message.content)
+    result1 = eval(response1.output_text)
 
     a = unidecode(text).lower().split("clarant", 1)
     b = unidecode(text).lower().split("claration", 1)
@@ -162,9 +162,7 @@ json
     elif len(a) > 1:
         text2 = a[-1]
     prompt2 = (
-        f'Deceased person name : {list(list(result1.values())[0].values())[0]}\n\n Text:\n\n ""'
-        + text2
-        + """""
+        """""
         
     - For "notary":
         - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
@@ -199,17 +197,23 @@ return json:
 }
 """
     )
-    response2 = openai_client.chat.completions.create(
+    response2 = openai_client.responses.create(
         model="gpt-4o-mini",
-        messages=[
+        input=[
+            {"role": "system", "content": [{"type": "input_text", "text": prompt2}]},
             {
                 "role": "user",
-                "content": prompt2,
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": f'Deceased person name : {list(list(result1.values())[0].values())[0]}\n\n Text:\n\n ""' + text2
+                    }
+                ],
             },
         ],
-        response_format={"type": "json_object"},
+        text={"format": {"type": "json_object"}},
     )
-    result2 = eval(response2.choices[0].message.content)
+    result2 = eval(response2.output_text)
 
     result = result2 | result1
 
@@ -227,6 +231,7 @@ return json:
         "Chef d'entreprise de Pompes Funèbres",
         "Cheffe d'entreprise de Pompes Funèbres",
         "Services Funéraires",
+        "chef d'agence",
         "Employé PF",
         "Employée PF",
         "Employé Pompes Funèbres",
@@ -252,7 +257,7 @@ return json:
         "Opératrice Funéraire",
         "chauffeur porteur",
         "Directrice commerciale",
-        "démarcheur"
+        "démarcheur",
     ]
     list2 = [
         "Vaguemestre",
@@ -260,11 +265,13 @@ return json:
         "Infirmier",
         "hospital",
         "psychologique",
+        "adjoint des cadres",
         "assistante de direction",
         "assistant de direction",
         "responsable du secteur recette",
         "administrati",
         "admissionniste",
+        "accueil",
         "EPHAD",
     ]
     if check_for_text(["police"], text2):
@@ -273,12 +280,12 @@ return json:
         result["hospital"] = 0
         result["heir"] = 0
         return result
-    
+
     if check_for_text(["notoriete"], text2):
         result["notary"] = 1
     else:
         result["notary"] = 0
-        
+
     if check_for_text(list1, text2):
         result["undertaker"] = 1
     if check_for_text(list2, text2):
@@ -287,14 +294,9 @@ return json:
     return result
 
 
-def get_notary_info(image_path):
+def get_notary_info(image_path, openai_client: OpenAI):
     text = pytesseract.image_to_string(image_path, lang="fra")
-    prompt = (
-        "Text:\n"
-        + text
-        + """
-
-
+    prompt = """
 1. Filter unnecessary characters like (*, #, ~, etc.)
 2. case sensitive so Don't change any case because I Identify fname and lname with case.
 3. If you think this is not the full text from a death certificate then ""
@@ -309,20 +311,61 @@ Please format the output as a JSON object, following this structure exactly:
     "Certificate notary name": "" (Name of the notary mentioned after "Acte de notorieti") (omit the title "Maitre" and only include the name).
 }
 """
-    )
-
-    response = openai_client.chat.completions.create(
+    response = openai_client.responses.create(
         model="gpt-4o-mini",
-        messages=[
+        input=[
+            {"role": "system", "content": [{"type": "input_text", "text": prompt}]},
             {
                 "role": "user",
-                "content": prompt,
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": text,
+                    }
+                ],
             },
         ],
-        response_format={"type": "json_object"},
-        max_tokens=300,
+        text={"format": {"type": "json_object"}},
     )
-    result = eval(response.choices[0].message.content)
+    result = eval(response.output_text)
+    return result
+
+
+def get_handwritten_image_result(image_path, openai_client: OpenAI):
+    base64_string = image_to_base64(image_path)
+    prompt = """
+1. case sensitive so Don't change any case because I Identify fname and lname with case.
+2. correct the orientation if wrong.
+3. Ensure the following:
+    - If any of the fields are not present, leave them as an empty string ("").
+    - Return the result in the exact JSON format.
+
+Please format the output as a JSON object, following this structure exactly:
+{
+    "Dead person full name": "" (You can get it right at the beginning),
+    "Date of Birth": "dd/mm/yyyy",
+    "Date of Death": "dd/mm/yyyy",
+    "Certificate notary name": "" (Name of the notary mentioned after "Acte de notorieti") (omit the title "Maitre" and only include the name).
+}
+"""
+
+    response = openai_client.responses.create(
+        model="gpt-4o",
+        input=[
+            {"role": "system", "content": [{"type": "input_text", "text": prompt}]},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/png;base64,{base64_string}",
+                    }
+                ],
+            },
+        ],
+        text={"format": {"type": "json_object"}},
+    )
+    result = eval(response.output_text)
     return result
 
 
@@ -350,7 +393,7 @@ def process_image_for_ocr(image_path, contrast_factor=1.8, blur_radius=1, thresh
     # Convert to RGB if not already in that mode
     if pil_image.mode != "RGB":
         pil_image = pil_image.convert("RGB")
-    
+
     # Isolate black pixels: Create a new image with black pixels preserved
     pixels = pil_image.load()
     for y in range(pil_image.height):
@@ -364,6 +407,12 @@ def process_image_for_ocr(image_path, contrast_factor=1.8, blur_radius=1, thresh
     pil_image = pil_image.filter(ImageFilter.GaussianBlur(blur_radius))
 
     return pil_image
+
+
+def image_to_base64(image_path):
+    with open(image_path, "rb") as image_file:
+        base64_string = base64.b64encode(image_file.read()).decode("utf-8")
+    return base64_string
 
 
 def check_for_text(words, sentence):

@@ -64,9 +64,12 @@ def pdf_to_images(pdf_path, output_folder, resolution):
 
 
 def separate_pdfs(sheets_service, drive_service):
+    openai_client = OpenAI(api_key=GPT_KEY_1)
     existing_images = get_table_data(sheets_service, IMAGE_SHEET_ID, "Sheet1!A:D")
     pdf_files = [
-        file for file in os.listdir(INPUT_FOLDER) if file.lower().endswith(".pdf")
+        file
+        for file in os.listdir(NORMAL_INPUT_FOLDER)
+        if file.lower().endswith(".pdf")
     ]
 
     for pdf in pdf_files:
@@ -77,7 +80,7 @@ def separate_pdfs(sheets_service, drive_service):
         na_images = []
 
         pdf_name = os.path.basename(pdf)
-        pdf_path = f"{INPUT_FOLDER}/{pdf}"
+        pdf_path = f"{NORMAL_INPUT_FOLDER}/{pdf}"
 
         time_start = time.time()
         print(f"\nProcess Started For {pdf_name}\n")
@@ -98,7 +101,9 @@ def separate_pdfs(sheets_service, drive_service):
             count += 1
 
             image_path = f"{IMAGE_FOLDER}/{image}"
-            gpt_result: dict = get_image_result(image_path)  # Pass services
+            gpt_result: dict = get_image_result(
+                image_path, openai_client
+            )  # Pass services
             if gpt_result:
                 details = list(dict(gpt_result["about_deceased_person"]).values())
                 (
@@ -116,7 +121,13 @@ def separate_pdfs(sheets_service, drive_service):
                     partner,
                 ) = details
                 image_link = upload_image_and_append_sheet(
-                    name, dob, dod, image_path, drive_service, sheets_service, existing_images
+                    name,
+                    dob,
+                    dod,
+                    image_path,
+                    drive_service,
+                    sheets_service,
+                    existing_images,
                 )
                 other, template = False, 2
                 try:
@@ -132,7 +143,7 @@ def separate_pdfs(sheets_service, drive_service):
                 if int(gpt_result["notary"]):
                     print("Notary")
                     notary_images.append(image_path)
-                    notary_info: dict = get_notary_info(image_path)
+                    notary_info: dict = get_notary_info(image_path, openai_client)
                     _, don, notary_name = list(notary_info.values())
                     notary_first_name, notary_last_name = get_fname_lname(
                         unidecode(notary_name)
@@ -187,7 +198,7 @@ def separate_pdfs(sheets_service, drive_service):
                         None,
                         None,
                         None,
-                        image_link
+                        image_link,
                     )
                     request = (
                         sheets_service.spreadsheets()
@@ -270,27 +281,115 @@ def separate_pdfs(sheets_service, drive_service):
                 print("------------------------------------")
         combine_images_to_pdf(
             notary_images,
-            f"{NOTARY_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Notary.pdf')}",
+            f"{OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Notary.pdf')}",
         )
         combine_images_to_pdf(
             heir_images,
-            f"{HEIR_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Heir.pdf')}",
+            f"{OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Heir.pdf')}",
         )
         combine_images_to_pdf(
             Hospital_images,
-            f"{HOSPITAL_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Hospital.pdf')}",
+            f"{OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Hospital.pdf')}",
         )
         combine_images_to_pdf(
             na_images,
-            f"{OTHER_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Other.pdf')}",
+            f"{OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Other.pdf')}",
         )
         new_file_path = combine_images_to_pdf(
             undertake_images,
-            f"{UNDERTAKER_OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Undertaker.pdf')}",
+            f"{OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Undertaker.pdf')}",
         )
         if new_file_path:
-            upload_to_drive(drive_service,new_file_path,UNDERTAKER_FOLDER_ID)
-            
+            upload_to_drive(drive_service, new_file_path, UNDERTAKER_FOLDER_ID)
+
+        shutil.move(pdf_path, f"{COMPLETED_FOLDER}/{pdf}")
+
+        print(
+            f"Completed processing for {pdf_name} in {int(time.time() - time_start)} sec"
+        )
+
+
+def separate_handwritten_pdfs(sheets_service, drive_service):
+    openai_client = OpenAI(api_key=GPT_KEY_2)
+    existing_images = get_table_data(sheets_service, IMAGE_SHEET_ID, "Sheet1!A:D")
+    pdf_files = [
+        file
+        for file in os.listdir(HANDWRITTEN_INPUT_FOLDER)
+        if file.lower().endswith(".pdf")
+    ]
+
+    for pdf in pdf_files:
+        pdf_name = os.path.basename(pdf)
+        pdf_path = f"{HANDWRITTEN_INPUT_FOLDER}/{pdf}"
+
+        time_start = time.time()
+        print(f"\nProcess Started For {pdf_name}\n")
+        # Convert PDF to images
+        pdf_to_images(pdf_path, IMAGE_FOLDER, 200)
+
+        images = [
+            file for file in os.listdir(IMAGE_FOLDER) if file.lower().endswith(".png")
+        ]
+        images = sorted(images, key=extract_number)
+
+        print("\nSTART :\n")
+        count = 1
+        total = len(images)
+        for image in images:
+            print("------------------------------------")
+            print(f"{image} : {count}/{total}")
+            count += 1
+
+            image_path = f"{IMAGE_FOLDER}/{image}"
+            gpt_result: dict = get_handwritten_image_result(
+                image_path, openai_client
+            )  # Pass services
+            if gpt_result:
+                details = gpt_result.values()
+                (name, dob, dod, notary_name) = details
+                image_link = upload_image_and_append_sheet(
+                    name,
+                    dob,
+                    dod,
+                    image_path,
+                    drive_service,
+                    sheets_service,
+                    existing_images,
+                )
+                notary_first_name, notary_last_name = get_fname_lname(
+                    unidecode(notary_name)
+                )
+                new_row = (
+                    notary_first_name,
+                    notary_last_name,
+                    None,
+                    None,
+                    name,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    image_link,
+                    "unchecked"
+                )
+                request = (
+                    sheets_service.spreadsheets()
+                    .values()
+                    .append(
+                        spreadsheetId=ANNUAIRE_NOTAIRES_SHEET_ID,
+                        range="Scheduled email!A:N",
+                        valueInputOption="USER_ENTERED",
+                        body={"values": [new_row]},
+                    )
+                )
+                execute_with_retry(request)
+                print("------------------------------------")
+        shutil.copy(
+            pdf_path, f"{OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Notary.pdf')}"
+        )
         shutil.move(pdf_path, f"{COMPLETED_FOLDER}/{pdf}")
 
         print(

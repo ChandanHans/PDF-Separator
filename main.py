@@ -23,7 +23,8 @@ def main():
     
     clear_display()
     print("1. Separate-Pdfs")
-    print("2. Create Letters")
+    print("2. Separate-Handwritten-Pdfs")
+    print("3. Create Letters")
     print("\nEnter your choice (1/2): ")
     
     while True:
@@ -35,6 +36,10 @@ def main():
             break
         elif choice == "2":
             print("\nLoading...")
+            separate_handwritten_pdfs(sheets_service, drive_service)
+            break
+        elif choice == "3":
+            print("\nLoading...")
             create_combine_letters(sheets_service, drive_service)
             break
         
@@ -44,14 +49,11 @@ def main():
 
 
 if __name__ == "__main__":
-    os.makedirs(INPUT_FOLDER, exist_ok=True)
-    os.makedirs(HEIR_OUTPUT_FOLDER, exist_ok=True)
-    os.makedirs(NOTARY_OUTPUT_FOLDER, exist_ok=True)
-    os.makedirs(UNDERTAKER_OUTPUT_FOLDER, exist_ok=True)
-    os.makedirs(OTHER_OUTPUT_FOLDER, exist_ok=True)
+    os.makedirs(NORMAL_INPUT_FOLDER, exist_ok=True)
+    os.makedirs(HANDWRITTEN_INPUT_FOLDER, exist_ok=True)
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     os.makedirs(IMAGE_FOLDER, exist_ok=True)
     os.makedirs(COMPLETED_FOLDER, exist_ok=True)
     os.makedirs(LETTER_FOLDER, exist_ok=True)
     os.makedirs(TEMP_LETTER_FOLDER, exist_ok=True)
-    os.makedirs(HOSPITAL_OUTPUT_FOLDER, exist_ok=True)
     main()

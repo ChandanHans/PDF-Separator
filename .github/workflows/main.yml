@@ -30,7 +30,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Create .env File
-        run: echo 'GPT_KEY=${{ secrets.GPT_KEY }}','CREDS_JSON=${{ secrets.CREDS_JSON }}' > .env
+        run: echo 'GPT_KEY_1=${{ secrets.GPT_KEY_1 }}','GPT_KEY_2=${{ secrets.GPT_KEY_2 }}','CREDS_JSON=${{ secrets.CREDS_JSON }}' > .env
 
       - name: Create Date File
         run: python -c "import datetime; print(datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ'))" > time.txt
