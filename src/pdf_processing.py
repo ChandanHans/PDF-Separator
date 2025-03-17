@@ -372,15 +372,14 @@ def separate_handwritten_pdfs(sheets_service, drive_service):
                     None,
                     None,
                     None,
-                    image_link,
-                    "unchecked"
+                    image_link
                 )
                 request = (
                     sheets_service.spreadsheets()
                     .values()
                     .append(
                         spreadsheetId=ANNUAIRE_NOTAIRES_SHEET_ID,
-                        range="Scheduled email!A:N",
+                        range="Scheduled email!A:M",
                         valueInputOption="USER_ENTERED",
                         body={"values": [new_row]},
                     )
