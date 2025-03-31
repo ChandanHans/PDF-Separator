@@ -1,8 +1,11 @@
+from io import BytesIO
 import os
 import shutil
 import fitz
 from tqdm import tqdm
 from PIL import Image
+
+from .undertaker import get_undertaker_data
 
 from .drive_upload import get_table_data, upload_to_drive
 
@@ -55,10 +58,23 @@ def pdf_to_images(pdf_path, output_folder, resolution):
         bar_format="{percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt}",
     ):
         page = doc.load_page(i)
-        # Get the image of the page
-        image = page.get_pixmap(matrix=fitz.Matrix(resolution / 72, resolution / 72))
-        image_path = f"{output_folder}/page-{i + 1}.png"
-        image.save(image_path)
+        pix = page.get_pixmap(matrix=fitz.Matrix(resolution / 72, resolution / 72))
+        
+        # Convert to Pillow Image
+        image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+        # Compress until under 800 KB
+        image_path = os.path.join(output_folder, f"page-{i + 1}.png")
+        for quality in range(95, 10, -5):  # Try decreasing quality in steps
+            buffer = BytesIO()
+            image.save(buffer, format="JPEG", quality=quality, optimize=True)
+            size_kb = buffer.tell() / 1024
+            if size_kb <= 900:
+                with open(image_path, "wb") as f:
+                    f.write(buffer.getvalue())
+                break
+        else:
+            print(f"Warning: page-{i + 1} image couldn't be reduced below 800 KB.")
 
     doc.close()
 
@@ -71,7 +87,7 @@ def separate_pdfs(sheets_service, drive_service):
         for file in os.listdir(NORMAL_INPUT_FOLDER)
         if file.lower().endswith(".pdf")
     ]
-
+    undertaker_data = get_undertaker_data(sheets_service)
     for pdf in pdf_files:
         notary_images = []
         undertake_images = []
@@ -181,6 +197,55 @@ def separate_pdfs(sheets_service, drive_service):
                     else:
                         print("Undertaker")
                         undertake_images.append(image_path)
+
+                        if declarant and declarant not in undertaker_data:
+                            new_row = (
+                                None,
+                                dep,
+                                unidecode(declarant).replace("-", " "),
+                                declarant_city,
+                                declarant_address,
+                                None,
+                                None,
+                                "Not contacted"
+                            )
+                            request = (
+                                sheets_service.spreadsheets()
+                                .values()
+                                .append(
+                                    spreadsheetId=ANNUAIRE_UNDERTAKER_SHEET_ID,
+                                    range="PF Annuaire!A:H",
+                                    valueInputOption="USER_ENTERED",
+                                    body={"values": [new_row]},
+                                )
+                            )
+                            execute_with_retry(request)
+                        new_row = (
+                            None,
+                            unidecode(declarant).replace("-", " "),
+                            None,
+                            None,
+                            name,
+                            dod,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            image_link
+                        )
+                        request = (
+                            sheets_service.spreadsheets()
+                            .values()
+                            .append(
+                                spreadsheetId=ANNUAIRE_UNDERTAKER_SHEET_ID,
+                                range="Scheduled email!A:M",
+                                valueInputOption="USER_ENTERED",
+                                body={"values": [new_row]},
+                            )
+                        )
+                        execute_with_retry(request)
                 elif int(gpt_result["hospital"]):
                     print("Hospital")
                     Hospital_images.append(image_path)
@@ -295,12 +360,10 @@ def separate_pdfs(sheets_service, drive_service):
             na_images,
             f"{OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Other.pdf')}",
         )
-        new_file_path = combine_images_to_pdf(
+        combine_images_to_pdf(
             undertake_images,
             f"{OUTPUT_FOLDER}/{pdf_name.replace('.pdf', ' - Undertaker.pdf')}",
         )
-        if new_file_path:
-            upload_to_drive(drive_service, new_file_path, UNDERTAKER_FOLDER_ID)
 
         shutil.move(pdf_path, f"{COMPLETED_FOLDER}/{pdf}")
 
