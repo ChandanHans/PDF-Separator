@@ -184,8 +184,9 @@ def separate_pdfs(sheets_service, drive_service):
                         .values()
                         .append(
                             spreadsheetId=ANNUAIRE_NOTAIRES_SHEET_ID,
-                            range="Scheduled email!A:M",
+                            range="Scheduled email",  # <-- No column range
                             valueInputOption="USER_ENTERED",
+                            insertDataOption="INSERT_ROWS",  # <-- Insert always
                             body={"values": [new_row]},
                         )
                     )
@@ -214,8 +215,9 @@ def separate_pdfs(sheets_service, drive_service):
                                 .values()
                                 .append(
                                     spreadsheetId=ANNUAIRE_UNDERTAKER_SHEET_ID,
-                                    range="PF Annuaire!A:H",
+                                    range="PF Annuaire",
                                     valueInputOption="USER_ENTERED",
+                                    insertDataOption="INSERT_ROWS",  # <-- Insert always
                                     body={"values": [new_row]},
                                 )
                             )
@@ -240,8 +242,9 @@ def separate_pdfs(sheets_service, drive_service):
                             .values()
                             .append(
                                 spreadsheetId=ANNUAIRE_UNDERTAKER_SHEET_ID,
-                                range="Scheduled email!A:M",
+                                range="Scheduled email",  # <-- No column range
                                 valueInputOption="USER_ENTERED",
+                                insertDataOption="INSERT_ROWS",  # <-- Insert always
                                 body={"values": [new_row]},
                             )
                         )
@@ -270,8 +273,9 @@ def separate_pdfs(sheets_service, drive_service):
                         .values()
                         .append(
                             spreadsheetId=ANNUAIRE_HOSPITAL_SHEET_ID,
-                            range="Scheduled email!A:N",
+                            range="Scheduled email",  # <-- No column range
                             valueInputOption="USER_ENTERED",
+                            insertDataOption="INSERT_ROWS",  # <-- Insert always
                             body={"values": [new_row]},
                         )
                     )
@@ -303,8 +307,9 @@ def separate_pdfs(sheets_service, drive_service):
                             .values()
                             .append(
                                 spreadsheetId=ANNUAIRE_HERITIERS_SHEET_ID,
-                                range="Héritier Annuaire!A:N",
+                                range="Héritier Annuaire",
                                 valueInputOption="USER_ENTERED",
+                                insertDataOption="INSERT_ROWS",  # <-- Insert always
                                 body={"values": [new_row]},
                             )
                         )
@@ -337,8 +342,9 @@ def separate_pdfs(sheets_service, drive_service):
                         .values()
                         .append(
                             spreadsheetId=ANNUAIRE_TOWNHALL_SHEET_ID,
-                            range="Scheduled email!A:N",
+                            range="Scheduled email",  # <-- No column range
                             valueInputOption="USER_ENTERED",
+                            insertDataOption="INSERT_ROWS",  # <-- Insert always
                             body={"values": [new_row]},
                         )
                     )
@@ -442,8 +448,9 @@ def separate_handwritten_pdfs(sheets_service, drive_service):
                     .values()
                     .append(
                         spreadsheetId=ANNUAIRE_NOTAIRES_SHEET_ID,
-                        range="Scheduled email!A:M",
+                        range="Scheduled email",  # <-- No column range
                         valueInputOption="USER_ENTERED",
+                        insertDataOption="INSERT_ROWS",  # <-- Insert always
                         body={"values": [new_row]},
                     )
                 )
