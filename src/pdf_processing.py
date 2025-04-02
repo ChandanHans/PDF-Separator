@@ -197,8 +197,8 @@ def separate_pdfs(sheets_service, drive_service):
                     else:
                         print("Undertaker")
                         undertake_images.append(image_path)
-
-                        if declarant and declarant not in undertaker_data:
+                        clean_declarant = unidecode(declarant).replace(" ", "").replace("-", "").replace(",", "").lower()
+                        if declarant and clean_declarant not in undertaker_data:
                             new_row = (
                                 None,
                                 dep,
@@ -240,7 +240,7 @@ def separate_pdfs(sheets_service, drive_service):
                             .values()
                             .append(
                                 spreadsheetId=ANNUAIRE_UNDERTAKER_SHEET_ID,
-                                range="Scheduled email!A:M",
+                                range="Scheduled email!A:C",
                                 valueInputOption="USER_ENTERED",
                                 body={"values": [new_row]},
                             )
