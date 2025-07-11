@@ -12,6 +12,8 @@ secret_token.pickle
 .venv
 __pycache__
 k.py
+p.py
+Temp
 token.*
 /Hospital
 /Output

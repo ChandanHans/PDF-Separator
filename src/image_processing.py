@@ -2,12 +2,14 @@ import base64
 import os
 import platform
 import subprocess
+import cv2
 import pytesseract
 from openai import OpenAI
 from unidecode import unidecode
 from googleapiclient.http import MediaFileUpload
 from PIL import Image, ImageEnhance, ImageFilter
 
+from .prompts import *
 from .constants import *
 from .utils import *
 
@@ -64,309 +66,102 @@ def upload_image_and_append_sheet(
     existing_images.append(row_data)
     return file_link
 
+def check_handwritten(image_path: str) -> bool:
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    # print(pytesseract.image_to_data(img, lang="fra", config="--oem 1 --psm 6"))
+    data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT, lang="fra", config="--oem 1 --psm 6")
+
+    low_conf_count = 0
+    total_word_count = 0
+
+    for conf in data['conf']:
+        try:
+            conf = float(conf)
+            if conf > 0:
+                total_word_count += 1
+                if conf < 70:
+                    low_conf_count += 1
+        except (ValueError, TypeError):
+            continue
+    if total_word_count == 0:
+        return True
+    low_conf_ratio = low_conf_count / total_word_count
+    return low_conf_ratio > 0.09
 
 def get_image_result(image_path, openai_client: OpenAI):
     image = process_image_for_ocr(image_path)
-    text: str = pytesseract.image_to_string(image, lang="fra", config="--oem 3 --psm 6")
-    prompt1 = """
-Task Requirements:
+    is_handwritten = check_handwritten(image_path)
+    print("HandWritten :", is_handwritten)
+    full_ocr_text = pytesseract.image_to_string(image, lang="fra", config="--oem 3 --psm 6")
+    
+    split_by_clarant = unidecode(full_ocr_text).lower().split("clarant", 1)
+    split_by_claration = unidecode(full_ocr_text).lower().split("claration", 1)
 
-1. Filter Unnecessary Characters
-    - Remove characters like (*, #, ~, etc.).
-
-2. Case Sensitivity  
-    - Don't change any case because I Identify fname and lname with case.
-         
-3. Extract Information About the Deceased Person
-    - For "Deceased person full name": 
-        - Extract from the beginning of the text.
-    - For "Date of Birth": 
-        - Format as dd/mm/yyyy.
-    - For "Date of Death": 
-        - Format as dd/mm/yyyy.
-    - For "City":
-        - City of the Deceased person. (only City) (domicile, domicilié, domiciliée, habitant, demeurant, etc...)
-    - For "Department Number":
-        - Department Number of City of the Deceased person.
-    - For "City of death": 
-        - Extract the city name of death.
-    - For "Declarant Name": 
-        - Extract from Déclarant section.
-        - Extract the name of the relative.
-        - not the relationship.
-        - if there no relative name in Déclarant section then "".
-        - hints : search for word like (fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...) in Déclarant section.
-    - For "Declarant Address": 
-        - Extract Address from the full address from the declaration section.
-    - For "Declarant City": 
-        - Extract only City of full address from the declaration section.
-    - For "Declarant Address Zip code":
-        - Return the Zip code of Declarant Address.
-        - It may not be in the Text but return it yourself
-    - For "Relation with Deceased person": 
-        - return "" if the declarant is not a relative of deceased.
-        - Extract from Déclarant section
-        - Extract the relation of the Declarant.
-        - e.g., fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, Epoux, Epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami, amie, etc...
-    - For "Name of spouse": 
-        - Search before Déclarant section.
-        - Extract the name of the spouse.
-        - hints : search for word like (époux, épouse, concubin, concubine, mari, femme, pacsé etc.) before Déclarant section.
-        - skip divorce info.
-
-Output Format:
-Return the results as a JSON object, strictly adhering to this structure:
-
-json
-{
-    "about_deceased_person": {
-        "Deceased person full name": "",
-        "Date of Birth": "dd/mm/yyyy",
-        "Date of Death": "dd/mm/yyyy",
-        "City": "",
-        "Department Number": "",
-        "City of death": "",
-        "Declarant Full Name": "",
-        "Declarant Address": "",
-        "Declarant City": "",
-        "Declarant Address Zip code":"",
-        "Relation with Deceased person": "",
-        "Name of spouse": ""
-    }
-}
-    """
-
-    response1 = openai_client.responses.create(
-        model="gpt-4o-mini",
-        input=[
-            {"role": "system", "content": [{"type": "input_text", "text": prompt1}]},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": text,
-                    }
-                ],
-            },
-        ],
-        text={"format": {"type": "json_object"}},
-    )
-    result1 = eval(response1.output_text)
-
-    a = unidecode(text).lower().split("clarant", 1)
-    b = unidecode(text).lower().split("claration", 1)
-    text2 = text
-    if len(b) > 1:
-        text2 = b[-1]
-    elif len(a) > 1:
-        text2 = a[-1]
-    prompt2 = (
-        """""
+    declarant_section_text = full_ocr_text
+    if len(split_by_claration) > 1:
+        declarant_section_text = split_by_claration[-1]
+    elif len(split_by_clarant) > 1:
+        declarant_section_text = split_by_clarant[-1]
         
-    - For "notary":
-        - Return 1 if the word "Acte de notoriété" / "notoriete" is found in the text.
-        - Note: If there is "mentions marginales" and contains the word Neant then return 0.
-    - For "undertaker":
-        - Return 1 if any of the following keywords are found:
-            (Funéraire, Assistant funéraire , Assistante funéraire, Chef d'entreprise , Cheffe d'entreprise, Conseiller Funéraire , Conseillère Funéraire, Conservateur du Cimetière , Conservatrice du Cimetière, Conservateur du cimetière, Chef d'entreprise de Pompes Funèbres , Cheffe d'entreprise de Pompes Funèbres, Services Funéraires, Employé PF , Employée PF, Employé Pompes Funèbres , Employée Pompes Funèbres, Dirigeant de PF , Dirigeante de PF, Dirigeant de Pompes Funèbres , Dirigeante de Pompes Funèbres, Gérant de Société , Gérante de Société, Gérant de la société , Gérante de la société, Gérant , Gérante, Directeur d'agence , Directrice d'agence, Responsable des services, Responsable d'agence, Porteur funéraire, Pompes Funèbres, Pompe Funèbre, Opérateur Funéraire , Opératrice Funéraire, démarcheur etc...)
-        - Search only in Déclarant section.
-        - Otherwise, return 0.
-    -for "hospital":
-        - return 1 if the declarant is likely from a Hospital.
-        - Return 1 if any of the following keywords are found:
-            (Infirmier, Infirmière, Infirmiers, Infirmières, attache d'administration, Directeur d'hôpital, Directrice d'hôpital, Directeurs d'hôpital, Directrices d'hôpital, Directeur d'hôpital délégué, Directrice d'hôpital déléguée, Directeurs d'hôpital délégués, Directrices d'hôpital déléguées, Agent hospitalier, Agente hospitalière, Agents hospitaliers, Agentes hospitalières, Adjointe hospitalière, Adjoint hospitalier, Agent médico-administratif, Agente médico-administrative, Agents médico-administratifs, Agentes médico-administratives, Aide médico-psychologique, Aides médico-psychologiques, Cadre hospitalier, Cadre hospitalière, Cadres hospitaliers, Cadres hospitalières, Cadre hospitalier responsable, Cadre hospitalière responsable, Cadres hospitaliers responsables, Cadres hospitalières responsables, Praticien hospitalier, Praticienne hospitalière, Praticiens hospitaliers, Praticiennes hospitalièresetc, responsable du secteur Recettes, EPHAD ...)
-        - Search only in Déclarant section.
-        - Otherwise, return 0.
-    - for "heir":
-        - It is to check wheather a relative info of Deceased person exist in the text or not.
-        - Analyze text properly. Don't return 1 for someone from the hospital or the police or an official from the Townhall or there relative.
-        - Hints : search for word fils, fille, père, mère, frère, sœur, cousin, cousine, neveu, nièce, oncle, tante, epoux, epouse, petits fils, petite fille, compagne, compagnon, concubin, concubine, ex-époux, ex-épouse, ex-mari, ex-femme, ami or amie.
-        - Return 1 if any of the word exist in the text.
-        - Or Return 1 if there any relative of Deceased person name like same last name.
-        - Search only in Déclarant section.
-        - Otherwise, return 0.
-        
-return json:
-{
-    "notary": 0/1,
-    "undertaker": 0/1,
-    "hospital": 0/1,
-    "heir": 0/1,
-    "why?": name and relation if heir,
-}
-"""
-    )
-    response2 = openai_client.responses.create(
-        model="gpt-4o-mini",
-        input=[
-            {"role": "system", "content": [{"type": "input_text", "text": prompt2}]},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": f'Deceased person name : {list(list(result1.values())[0].values())[0]}\n\n Text:\n\n ""' + text2
-                    }
-                ],
-            },
-        ],
-        text={"format": {"type": "json_object"}},
-    )
-    result2 = eval(response2.output_text)
-
-    result = result2 | result1
-
-    list1 = [
-        "Funéraire",
-        "Assistant funéraire",
-        "Assistante funéraire",
-        "Chef d'entreprise",
-        "Cheffe d'entreprise",
-        "Conseiller Funéraire",
-        "Conseillère Funéraire",
-        "Conservateur du Cimetière",
-        "Conservatrice du Cimetière",
-        "Conservateur du cimetière",
-        "Chef d'entreprise de Pompes Funèbres",
-        "Cheffe d'entreprise de Pompes Funèbres",
-        "Services Funéraires",
-        "chef d'agence",
-        "Employé PF",
-        "Employée PF",
-        "Employé Pompes Funèbres",
-        "Employée Pompes Funèbres",
-        "Dirigeant de PF",
-        "Dirigeante de PF",
-        "Dirigeant de Pompes Funèbres",
-        "Dirigeante de Pompes Funèbres",
-        "Gérant de Société",
-        "Gérante de Société",
-        "Gérant de la société",
-        "Gérante de la société",
-        "Gérant",
-        "Gérante",
-        "Directeur d'agence",
-        "Directrice d'agence",
-        "Responsable des services",
-        "Responsable d'agence",
-        "Porteur funéraire",
-        "Pompes Funèbres",
-        "Pompe Funèbre",
-        "Opérateur Funéraire",
-        "Opératrice Funéraire",
-        "chauffeur porteur",
-        "Directrice commerciale",
-        "démarcheur",
-    ]
-    list2 = [
-        "Vaguemestre",
-        "gestionnaire admissions",
-        "Infirmier",
-        "hospital",
-        "psychologique",
-        "adjoint des cadres",
-        "assistante de direction",
-        "assistant de direction",
-        "responsable du secteur recette",
-        "administrati",
-        "admissionniste",
-        "accueil",
-        "EPHAD",
-    ]
-    if check_for_text(["police"], text2):
-        result["notary"] = 0
-        result["undertaker"] = 0
-        result["hospital"] = 0
-        result["heir"] = 0
-        return result
-
-    if check_for_text(["notoriete"], text2):
-        result["notary"] = 1
+    # Step 5: Prepare OpenAI input (Image if handwritten, Text otherwise)
+    if is_handwritten:
+        base64_string = image_to_base64(image_path)
+        extracted_info_response = openai_client.responses.create(
+            model="gpt-4o",
+            input=[
+                {"role": "system", "content": [{"type": "input_text", "text": extract_deceased_info_prompt}]},
+                {"role": "user", "content": [{"type": "input_image", "image_url": f"data:image/png;base64,{base64_string}"}]},
+            ],
+            text={"format": {"type": "json_object"}},
+        )
     else:
-        result["notary"] = 0
+        extracted_info_response = openai_client.responses.create(
+            model="gpt-4o-mini",
+            input=[
+                {"role": "system", "content": [{"type": "input_text", "text": extract_deceased_info_prompt}]},
+                {"role": "user", "content": [{"type": "input_text", "text": full_ocr_text}]},
+            ],
+            text={"format": {"type": "json_object"}},
+        )
 
-    if check_for_text(list1, text2):
-        result["undertaker"] = 1
-    if check_for_text(list2, text2):
-        result["hospital"] = 1
+    extracted_info = eval(extracted_info_response.output_text)
 
-    return result
+    # Step 6: Analyze Declarant
+    if is_handwritten:
+        declarant_analysis_response = openai_client.responses.create(
+            model="gpt-4o",
+            input=[
+                {"role": "system", "content": [{"type": "input_text", "text": classify_declarant_prompt}]},
+                {"role": "user", "content": [{"type": "input_image", "image_url": f"data:image/png;base64,{base64_string}"}]},
+            ],
+            text={"format": {"type": "json_object"}},
+        )
+    else:
+        deceased_name = list(list(extracted_info.values())[0].values())[0]
+        declarant_analysis_response = openai_client.responses.create(
+            model="gpt-4o-mini",
+            input=[
+                {"role": "system", "content": [{"type": "input_text", "text": classify_declarant_prompt}]},
+                {"role": "user", "content": [{"type": "input_text", "text": f"Deceased person name: {deceased_name}\n\nText:\n\n{declarant_section_text}"}]},
+            ],
+            text={"format": {"type": "json_object"}},
+        )
 
+    declarant_analysis = eval(declarant_analysis_response.output_text)
 
-def get_notary_info(image_path, openai_client: OpenAI):
-    text = pytesseract.image_to_string(image_path, lang="fra")
-    prompt = """
-1. Filter unnecessary characters like (*, #, ~, etc.)
-2. case sensitive so Don't change any case because I Identify fname and lname with case.
-3. If you think this is not the full text from a death certificate then ""
-4. Ensure the following:
-    - If any of the fields are not present, leave them as an empty string ("").
-    - Return the result in the exact JSON format.
+    # Step 7: Merge both results
+    final_result : dict = declarant_analysis | extracted_info
 
-Please format the output as a JSON object, following this structure exactly:
-{
-    "Dead person full name": "" (You can get it right at the beginning),
-    "Acte de notorieti": "" (date only) (format dd/mm/yyyy),
-    "Certificate notary name": "" (Name of the notary mentioned after "Acte de notorieti") (omit the title "Maitre" and only include the name).
-}
-"""
-    response = openai_client.responses.create(
-        model="gpt-4o-mini",
-        input=[
-            {"role": "system", "content": [{"type": "input_text", "text": prompt}]},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": text,
-                    }
-                ],
-            },
-        ],
-        text={"format": {"type": "json_object"}},
-    )
-    result = eval(response.output_text)
-    return result
+   
+    if check_for_text(["police"], declarant_section_text):
+        final_result.update({"notary": 0, "undertaker": 0, "hospital": 0, "heir": 0})
+        return final_result
+    if check_for_text(undertaker_keywords, declarant_section_text):
+        final_result["undertaker"] = 1
+    if check_for_text(hospital_keywords, declarant_section_text):
+        final_result["hospital"] = 1
 
-
-def get_handwritten_image_result(image_path, openai_client: OpenAI):
-    base64_string = image_to_base64(image_path)
-    prompt = """
-1. case sensitive so Don't change any case because I Identify fname and lname with case.
-2. correct the orientation if wrong.
-3. Ensure the following:
-    - If any of the fields are not present, leave them as an empty string ("").
-    - Return the result in the exact JSON format.
-
-Please format the output as a JSON object, following this structure exactly:
-{
-    "Dead person full name": "" (You can get it right at the beginning),
-    "Date of Birth": "dd/mm/yyyy",
-    "Date of Death": "dd/mm/yyyy",
-    "Certificate notary name": "" (Name of the notary mentioned after "Acte de notorieti") (omit the title "Maitre" and only include the name).
-}
-"""
-
-    response = openai_client.responses.create(
-        model="gpt-4o",
-        input=[
-            {"role": "system", "content": [{"type": "input_text", "text": prompt}]},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_image",
-                        "image_url": f"data:image/png;base64,{base64_string}",
-                    }
-                ],
-            },
-        ],
-        text={"format": {"type": "json_object"}},
-    )
-    result = eval(response.output_text)
-    return result
+    return final_result
 
 
 def process_image_for_ocr(image_path, contrast_factor=1.8, blur_radius=1, threshold=90):
